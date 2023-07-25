@@ -11,5 +11,7 @@ export * from "./components/ToolBar/toolbar"
 export * from "./components/Controller/controller"
 export * from "./components/Player/player";
 export * from "./types/EventObject"
+export * from "./utils/format";
+
 
 console.log('hello')
