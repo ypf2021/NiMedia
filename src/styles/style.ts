@@ -2,7 +2,7 @@ export const styles = {
     "video-container": "player_video-container__I9fU2",
     "video-wrapper": "player_video-wrapper__tN3j3",
     "video-controls": "toolbar_video-controls__wzQC1",
-    "video-controls-hidden": "",
+    "video-controls-hidden": "toolbar_video-controls-hidden__PscSU",
     "video-progress": "progress_video-progress__DMF70",
     "video-pretime": "progress_video-pretime__gDMzS",
     "video-buffered": "pregress_video-buffered__xlu1O",

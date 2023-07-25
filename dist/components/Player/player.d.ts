@@ -5,6 +5,8 @@ declare class Player extends BaseEvent {
     private container;
     private toolbar;
     private video;
+    private loadingMask;
+    private errorMask;
     constructor(options: PlayerOptions);
     init(): void;
     initComponent(): void;

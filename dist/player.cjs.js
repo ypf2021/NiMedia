@@ -30,7 +30,7 @@ const styles = {
     "video-container": "player_video-container__I9fU2",
     "video-wrapper": "player_video-wrapper__tN3j3",
     "video-controls": "toolbar_video-controls__wzQC1",
-    "video-controls-hidden": "",
+    "video-controls-hidden": "toolbar_video-controls-hidden__PscSU",
     "video-progress": "progress_video-progress__DMF70",
     "video-pretime": "progress_video-pretime__gDMzS",
     "video-buffered": "pregress_video-buffered__xlu1O",
@@ -75,6 +75,7 @@ class Controller extends BaseEvent {
         super();
         this.container = container;
         this.init();
+        this.initEvent();
     }
     get template() {
         return this.template_;
@@ -107,18 +108,29 @@ class Controller extends BaseEvent {
                 </div>
             </div>
         `;
-        // 获取到元素实例
-        this.videoPlayBtn = this.container.querySelector(`.${styles["video-start-pause"]} i`);
-        this.currentTime = this.container.querySelector(`.${styles["video-duration-completed"]}`);
-        this.summaryTime = this.container.querySelector(`.${styles["video-duration-all"]}`);
     }
     initEvent() {
-        // 订阅 play,on 事件
+        // 启动视频
         this.on("play", () => {
             this.videoPlayBtn.className = `${icon["iconfont"]} ${icon["icon-zanting"]}`;
         });
+        // 暂停视频
         this.on("pause", () => {
             this.videoPlayBtn.className = `${icon["iconfont"]} ${icon["icon-bofang"]}`;
+        });
+        // 加载视频数据
+        this.on("loadedmetadata", (summary) => {
+            this.summaryTime.innerHTML = formatTime(summary);
+        });
+        // 时间更新
+        this.on("timeupdate", (current) => {
+            this.currentTime.innerHTML = formatTime(current);
+        });
+        // 初始化时进行注册
+        this.on("mounted", () => {
+            this.videoPlayBtn = this.container.querySelector(`.${styles["video-start-pause"]} i`);
+            this.currentTime = this.container.querySelector(`.${styles["video-duration-completed"]}`);
+            this.summaryTime = this.container.querySelector(`.${styles["video-duration-all"]}`);
         });
     }
 }
@@ -246,7 +258,7 @@ class ToolBar extends BaseEvent {
         this.progress = new Progress(); // 进度条
         this.controller = new Controller(this.container); //下面的控制器
     }
-    // 组合template
+    // 组合 进度条 和 控制器的template
     initTemplate() {
         let div = document.createElement("div");
         div.className = `${styles["video-controls"]} ${styles["video-controls-hidden"]}`;
@@ -254,7 +266,43 @@ class ToolBar extends BaseEvent {
         div.innerHTML += this.controller.template;
         this.template_ = div;
     }
+    // 显示和隐藏toolbar
+    showToolBar(e) {
+        //工具栏的总容器
+        this.container.querySelector(`.${styles["video-controls"]}`).className = `${styles["video-controls"]}`;
+        if (e.target !== this.video) ;
+        else {
+            // 一个防抖
+            this.timer = window.setTimeout(() => {
+                this.hideToolBar();
+            }, 3000);
+        }
+    }
+    hideToolBar() {
+        this.container.querySelector(`.${styles["video-controls"]}`).className = `${styles["video-controls"]} ${styles["video-controls-hidden"]}`;
+    }
     initEvent() {
+        this.on("showtoolbar", (e) => {
+            // 防抖
+            if (this.timer) {
+                clearTimeout(this.timer);
+                this.timer = null;
+            }
+            this.showToolBar(e);
+        });
+        this.on("hidetoolbar", () => {
+            this.hideToolBar();
+        });
+        this.on("loadedmetadata", (summary) => {
+            this.controller.emit("loadedmetadata", summary);
+        });
+        this.on("timeupdate", (current) => {
+            this.controller.emit("timeupdate", current);
+        });
+        this.on("mounted", () => {
+            this.video = this.container.querySelector("video");
+            this.controller.emit("mounted");
+        });
         this.on("play", () => {
             this.controller.emit("play");
         });
@@ -279,6 +327,7 @@ class Player extends BaseEvent {
         this.initContainer();
         this.initEvent();
     }
+    ;
     init() {
         let container = this.playerOptions.container;
         if (!this.isTagValidate(container)) {
@@ -286,10 +335,13 @@ class Player extends BaseEvent {
         }
         this.container = container;
     }
+    ;
     initComponent() {
-        let toolbar = new ToolBar(this.container);
-        this.toolbar = toolbar;
+        this.toolbar = new ToolBar(this.container);
+        this.loadingMask = new LoadingMask(this.container);
+        this.errorMask = new ErrorMask(this.container);
     }
+    ;
     initContainer() {
         this.container.style.width = this.playerOptions.width;
         this.container.style.height = this.playerOptions.height;
@@ -305,7 +357,10 @@ class Player extends BaseEvent {
         `;
         this.container.appendChild(this.toolbar.template);
         this.video = this.container.querySelector("video");
+        // 执行toolbar的mounted
+        this.toolbar.emit("mounted");
     }
+    ;
     initEvent() {
         this.container.onclick = (e) => {
             if (e.target == this.video) {
@@ -317,14 +372,65 @@ class Player extends BaseEvent {
                 }
             }
         };
-        this.video.onplay = (e) => {
+        //鼠标移入总体容器和移动时都会触发 showToolbar，判断是否隐藏。
+        this.container.addEventListener("mouseenter", (e) => {
+            this.toolbar.emit("showToolbar", e);
+        });
+        this.container.addEventListener("mousemove", (e) => {
+            this.toolbar.emit("showtoolbar", e);
+        });
+        // 鼠标离开容器后进行隐藏
+        this.container.addEventListener("mouseleave", (e) => {
+            this.toolbar.emit("hidetoolbar");
+        });
+        // 视频加载完成后触发     loadedmetadata事件在元数据（metadata）被加载完成后触发。
+        this.video.addEventListener("loadedmetadata", (e) => {
+            // HTMLMediaElement.duration 属性以秒为单位给出媒体的长度
+            console.log("元数据加载完毕", this.video.duration);
+            this.toolbar.emit("loadedmetadata", this.video.duration);
+        });
+        // currentTime更新时触发  当currentTime更新时会触发timeupdate事件。
+        // HTMLMediaElement.currentTime 属性会以秒为单位返回当前媒体元素的播放时间
+        this.video.addEventListener("timeupdate", (e) => {
+            this.toolbar.emit("timeupdate", this.video.currentTime);
+        });
+        // 当视频可以再次播放的时候就移除loading和error的mask，
+        // 通常是为了应对在播放的过程中出现需要缓冲或者播放错误这种情况从而需要展示对应的mask
+        // 开始播放
+        this.video.addEventListener("play", (e) => {
+            this.loadingMask.removeLoadingMask();
+            this.errorMask.removeErrorMask();
             this.toolbar.emit("play");
-        };
-        this.video.onpause = (e) => {
+        });
+        // 暂停
+        this.video.addEventListener("pause", (e) => {
             this.toolbar.emit("pause");
-        };
-        this.video.onwaiting = (e) => {
-        };
+        });
+        // 等待     当回放因暂时缺少数据而停止时，将触发等待事件。
+        this.video.addEventListener("waiting", (e) => {
+            this.loadingMask.removeLoadingMask();
+            this.errorMask.removeErrorMask();
+            this.loadingMask.addLoadingMask();
+        });
+        // 出错     当用户代理试图获取媒体数据，但数据意外地没有到来时，将触发stalled事件。
+        this.video.addEventListener("stalled", (e) => {
+            console.log("视频加载发生错误");
+            this.loadingMask.removeLoadingMask();
+            this.errorMask.removeErrorMask();
+            this.errorMask.addErrorMask();
+        });
+        // 出错    error 事件会在因为一些错误（如网络连接错误）导致无法加载资源的时候触发。
+        this.video.addEventListener("error", (e) => {
+            this.loadingMask.removeLoadingMask();
+            this.errorMask.removeErrorMask();
+            this.errorMask.addErrorMask();
+        });
+        // 没完全加载    资源没有被完全加载时就会触发 abort 事件，但错误不会触发该事件。
+        this.video.addEventListener("abort", (e) => {
+            this.loadingMask.removeLoadingMask();
+            this.errorMask.removeErrorMask();
+            this.errorMask.addErrorMask();
+        });
     }
     // 判定元素是否为合理的元素  不可以是行内元素和可交互的行内块级元素
     isTagValidate(ele) {
@@ -348,15 +454,32 @@ class Player extends BaseEvent {
     }
 }
 
+//  格式化播放时间工具
+function addZero(num) {
+    return num > 9 ? "" + num : "0" + num;
+}
+function formatTime(seconds) {
+    seconds = Math.floor(seconds);
+    let minute = Math.floor(seconds / 60);
+    let second = seconds % 60;
+    return addZero(minute) + ":" + addZero(second);
+}
+
+let LOADING_MASK_MAP = new Array();
+let ERROR_MASK = new Array();
+
 console.log('hello');
 
 exports.$warn = $warn;
 exports.BaseEvent = BaseEvent;
 exports.Controller = Controller;
+exports.ERROR_MASK = ERROR_MASK;
 exports.ErrorMask = ErrorMask;
+exports.LOADING_MASK_MAP = LOADING_MASK_MAP;
 exports.LoadingMask = LoadingMask;
 exports.Player = Player;
 exports.Progress = Progress;
 exports.ToolBar = ToolBar;
+exports.formatTime = formatTime;
 exports.icon = icon;
 exports.styles = styles;

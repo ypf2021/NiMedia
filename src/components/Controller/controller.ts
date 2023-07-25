@@ -1,4 +1,4 @@
-import { $warn, styles, icon, EventObject, BaseEvent } from '../../index'
+import { $warn, styles, icon, EventObject, BaseEvent, formatTime } from '../../index'
 import "./controller.less"
 
 export class Controller extends BaseEvent {
@@ -12,6 +12,7 @@ export class Controller extends BaseEvent {
         super()
         this.container = container;
         this.init()
+        this.initEvent()
     }
 
     get template(): HTMLElement | string {
@@ -46,22 +47,44 @@ export class Controller extends BaseEvent {
                 </div>
             </div>
         `;
-
-        // 获取到元素实例
-        this.videoPlayBtn = this.container.querySelector(`.${styles["video-start-pause"]} i`)!;
-        this.currentTime = this.container.querySelector(`.${styles["video-duration-completed"]}`)!;
-        this.summaryTime = this.container.querySelector(`.${styles["video-duration-all"]}`)!;
     }
 
     initEvent(): void {
-        // 订阅 play,on 事件
+
+        // 启动视频
         this.on("play", () => {
             this.videoPlayBtn.className = `${icon["iconfont"]} ${icon["icon-zanting"]}`;
         })
 
+        // 暂停视频
         this.on("pause", () => {
             this.videoPlayBtn.className = `${icon["iconfont"]} ${icon["icon-bofang"]}`;
-        })
+        });
+
+        // 加载视频数据
+        this.on("loadedmetadata", (summary: number) => {
+            this.summaryTime.innerHTML = formatTime(summary);
+        });
+
+        // 时间更新
+        this.on("timeupdate", (current: number) => {
+            this.currentTime.innerHTML = formatTime(current);
+        });
+
+        // 初始化时进行注册
+        this.on("mounted", () => {
+            this.videoPlayBtn = this.container.querySelector(
+                `.${styles["video-start-pause"]} i`
+            )!;
+            this.currentTime = this.container.querySelector(
+                `.${styles["video-duration-completed"]}`
+            )!;
+            this.summaryTime = this.container.querySelector(
+                `.${styles["video-duration-all"]}`
+            )!;
+        });
+
+
     }
 
 

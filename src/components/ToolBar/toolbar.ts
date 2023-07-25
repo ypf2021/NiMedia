@@ -8,6 +8,8 @@ export class ToolBar extends BaseEvent {
     private progress!: Progress;
     private controller!: Controller;
     private container!: HTMLElement;
+    private video!: HTMLVideoElement;
+    private timer!: null | number
 
     constructor(container: HTMLElement) {
         super()
@@ -30,7 +32,7 @@ export class ToolBar extends BaseEvent {
         this.controller = new Controller(this.container) //下面的控制器
     }
 
-    // 组合template
+    // 组合 进度条 和 控制器的template
     initTemplate() {
         let div = document.createElement("div")
         div.className = `${styles["video-controls"]} ${styles["video-controls-hidden"]}`;
@@ -39,7 +41,58 @@ export class ToolBar extends BaseEvent {
         this.template_ = div
     }
 
+    // 显示和隐藏toolbar
+
+    showToolBar(e: MouseEvent) {
+        //工具栏的总容器
+        this.container.querySelector(
+            `.${styles["video-controls"]}`
+        )!.className = `${styles["video-controls"]}`;
+        if (e.target !== this.video) {
+            // do nothing
+        } else {
+            // 一个防抖
+            this.timer = window.setTimeout(() => {
+                this.hideToolBar()
+            }, 3000)
+        }
+    }
+
+    hideToolBar() {
+        this.container.querySelector(
+            `.${styles["video-controls"]}`
+        )!.className = `${styles["video-controls"]} ${styles["video-controls-hidden"]}`;
+    }
+
     initEvent() {
+
+        this.on("showtoolbar", (e: MouseEvent) => {
+            // 防抖
+            if (this.timer) {
+                clearTimeout(this.timer);
+                this.timer = null
+            }
+            this.showToolBar(e)
+        });
+
+        this.on("hidetoolbar", () => {
+            this.hideToolBar()
+        });
+
+        this.on("loadedmetadata", (summary: number) => {
+            this.controller.emit("loadedmetadata", summary);
+        });
+
+        this.on("timeupdate", (current: number) => {
+            this.controller.emit("timeupdate", current);
+        });
+
+        this.on("mounted", () => {
+            this.video = this.container.querySelector("video")!;
+            this.controller.emit("mounted");
+        });
+
+
         this.on("play", () => {
             this.controller.emit("play")
         })
