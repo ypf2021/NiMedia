@@ -400,35 +400,40 @@
             // 通常是为了应对在播放的过程中出现需要缓冲或者播放错误这种情况从而需要展示对应的mask
             // 开始播放
             this.video.addEventListener("play", (e) => {
+                console.log("视频播放 play");
                 this.loadingMask.removeLoadingMask();
                 this.errorMask.removeErrorMask();
                 this.toolbar.emit("play");
             });
             // 暂停
             this.video.addEventListener("pause", (e) => {
+                console.log("视频暂停 pause");
                 this.toolbar.emit("pause");
             });
             // 等待     当回放因暂时缺少数据而停止时，将触发等待事件。
             this.video.addEventListener("waiting", (e) => {
+                console.log("视频缺少数据 waiting");
                 this.loadingMask.removeLoadingMask();
                 this.errorMask.removeErrorMask();
                 this.loadingMask.addLoadingMask();
             });
             // 出错     当用户代理试图获取媒体数据，但数据意外地没有到来时，将触发stalled事件。
             this.video.addEventListener("stalled", (e) => {
-                console.log("视频加载发生错误");
+                console.log("视频加载发生错误stalled");
                 this.loadingMask.removeLoadingMask();
                 this.errorMask.removeErrorMask();
                 this.errorMask.addErrorMask();
             });
             // 出错    error 事件会在因为一些错误（如网络连接错误）导致无法加载资源的时候触发。
             this.video.addEventListener("error", (e) => {
+                console.log("视频加载发生错误error");
                 this.loadingMask.removeLoadingMask();
                 this.errorMask.removeErrorMask();
                 this.errorMask.addErrorMask();
             });
             // 没完全加载    资源没有被完全加载时就会触发 abort 事件，但错误不会触发该事件。
             this.video.addEventListener("abort", (e) => {
+                console.log("视频正在加载 abort");
                 this.loadingMask.removeLoadingMask();
                 this.errorMask.removeErrorMask();
                 this.errorMask.addErrorMask();
