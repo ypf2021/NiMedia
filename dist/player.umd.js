@@ -221,9 +221,12 @@
     }
 
     // 进度条组件
-    class Progress {
-        constructor() {
+    class Progress extends BaseEvent {
+        constructor(container) {
+            super();
+            this.container = container;
             this.init();
+            this.initEvent();
         }
         get template() {
             return this.template_;
@@ -237,6 +240,15 @@
                 <div class="${styles["video-dot"]} ${styles["video-dot-hidden"]}"></div>
             </div>
         `;
+        }
+        initEvent() {
+            this.on("mounted", () => {
+                this.progress = this.container.querySelector(`.${styles["video-controls"]} .${styles["video-progress"]}`);
+                this.pretime = this.progress.children[0];
+                this.bufferedProgress = this.progress.children[1];
+                this.completedProgress = this.progress.children[2];
+                this.dot = this.progress.children[3];
+            });
         }
     }
 
@@ -257,7 +269,7 @@
         init() { }
         // 注册 进度条 和 控制器
         initComponent() {
-            this.progress = new Progress(); // 进度条
+            this.progress = new Progress(this.container); // 进度条
             this.controller = new Controller(this.container); //下面的控制器
         }
         // 组合 进度条 和 控制器的template

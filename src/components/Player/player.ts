@@ -1,7 +1,7 @@
 import { PlayerOptions, $warn, styles, ToolBar, LoadingMask, ErrorMask, BaseEvent } from "../../index";;
 
 import "./player.less";
-
+import "../../main.less";
 class Player extends BaseEvent {
     private playerOptions = {
         url: "",
@@ -56,10 +56,20 @@ class Player extends BaseEvent {
         this.container.appendChild(this.toolbar.template);
         this.video = this.container.querySelector("video")!
         // 执行toolbar的mounted
-        this.toolbar.emit("mounted")
+        // this.toolbar.emit("mounted")
     };
 
     initEvent() {
+
+        // 自动播放
+        this.on("mounted", (ctx: this) => {
+            ctx.playerOptions.autoplay && ctx.video.play();
+        })
+
+        // 初始化
+        this.toolbar.emit("mounted");
+        this.emit("mounted", this)
+
         this.container.onclick = (e: Event) => {
             if (e.target == this.video) {
                 if (this.video.paused) {

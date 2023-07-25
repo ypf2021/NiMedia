@@ -28,7 +28,7 @@ export class ToolBar extends BaseEvent {
 
     // 注册 进度条 和 控制器
     initComponent() {
-        this.progress = new Progress() // 进度条
+        this.progress = new Progress(this.container) // 进度条
         this.controller = new Controller(this.container) //下面的控制器
     }
 
@@ -90,6 +90,7 @@ export class ToolBar extends BaseEvent {
         this.on("mounted", () => {
             this.video = this.container.querySelector("video")!;
             this.controller.emit("mounted");
+            this.progress.emit("mounted")
         });
 
 
