@@ -1,3 +1,4 @@
+export * from "./class/BaseEvent"
 export * from "./utils/warn";
 export * from "./styles/style"
 export * from "./styles/icon";
@@ -9,6 +10,6 @@ export * from "./components/Progress/progress"
 export * from "./components/ToolBar/toolbar"
 export * from "./components/Controller/controller"
 export * from "./components/Player/player";
-
+export * from "./types/EventObject"
 
 console.log('hello')

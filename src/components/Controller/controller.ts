@@ -1,10 +1,16 @@
-import { $warn, styles, icon } from '../../index'
+import { $warn, styles, icon, EventObject, BaseEvent } from '../../index'
 import "./controller.less"
 
-export class Controller {
-    private template_!: HTMLElement | string;
+export class Controller extends BaseEvent {
+    private template_!: HTMLElement | string; //模板
+    private container!: HTMLElement; //容器
+    private videoPlayBtn!: HTMLElement; // 播放按钮
+    private currentTime!: HTMLElement; //当前时间
+    private summaryTime!: HTMLElement; // 总体事件
 
-    constructor() {
+    constructor(container: HTMLElement) {
+        super()
+        this.container = container;
         this.init()
     }
 
@@ -12,7 +18,7 @@ export class Controller {
         return this.template_;
     }
 
-    init() {
+    init(): void {
         this.template_ = `
             <div class="${styles["video-play"]}">
                 <div class="${styles["video-subplay"]}">
@@ -40,5 +46,23 @@ export class Controller {
                 </div>
             </div>
         `;
+
+        // 获取到元素实例
+        this.videoPlayBtn = this.container.querySelector(`.${styles["video-start-pause"]} i`)!;
+        this.currentTime = this.container.querySelector(`.${styles["video-duration-completed"]}`)!;
+        this.summaryTime = this.container.querySelector(`.${styles["video-duration-all"]}`)!;
     }
+
+    initEvent(): void {
+        // 订阅 play,on 事件
+        this.on("play", () => {
+            this.videoPlayBtn.className = `${icon["iconfont"]} ${icon["icon-zanting"]}`;
+        })
+
+        this.on("pause", () => {
+            this.videoPlayBtn.className = `${icon["iconfont"]} ${icon["icon-bofang"]}`;
+        })
+    }
+
+
 }

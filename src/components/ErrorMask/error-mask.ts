@@ -3,12 +3,19 @@ import "./error-mask.less";
 
 export class ErrorMask {
     private template_!: string | HTMLElement;
-    constructor() {
+    private container!: HTMLElement;
+
+    constructor(container: HTMLElement) {
+        this.container = container;
         this.init();
     }
 
     init() {
         this.template_ = this.generateErrorMask();
+    }
+
+    get template(): string | HTMLElement {
+        return this.template_
     }
 
     generateErrorMask(): HTMLElement {
@@ -29,5 +36,21 @@ export class ErrorMask {
         mask.appendChild(errorContainer);
 
         return mask;
+    }
+
+    // 添加错误的mask
+    addErrorMask() {
+        // 没蒙层的情况下才展示
+        if (![...this.container.children].includes(this.template as HTMLElement)) {
+            this.container.appendChild(this.template as HTMLElement)
+        }
+    }
+
+    // 移除错误mask
+    removeErrorMask() {
+        if ([...this.container.children].includes(this.template as HTMLElement)) {
+            // ToDo
+            this.container.removeChild(this.template as HTMLElement);
+        }
     }
 }
