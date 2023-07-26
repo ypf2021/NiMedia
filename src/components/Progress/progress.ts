@@ -1,4 +1,4 @@
-import { $warn, styles, BaseEvent } from "../../index";
+import { $warn, styles, BaseEvent, formatTime } from "../../index";
 import "./progress.less";
 
 // 进度条组件
@@ -102,7 +102,27 @@ export class Progress extends BaseEvent {
             // 设置播放位置
             this.video.currentTime = Math.floor(scale * this.video.duration)
             if (this.video.paused) this.video.play()
-        }
+        };
+
+        // progress上面移动  时展示当前的时间
+        this.progress.onmousemove = (e: MouseEvent) => {
+            let scale = e.offsetX / this.progress.offsetWidth;
+            if (scale < 0) {
+                scale = 0;
+            } else if (scale > 1) {
+                scale = 1;
+            }
+
+            let pretime = formatTime(scale * this.video.duration);
+            this.pretime.style.display = "block";
+            this.pretime.innerHTML = pretime;
+            this.pretime.style.left = e.offsetX - 17 + "px";
+            e.preventDefault();
+        };
+
+        this.progress.onmouseleave = (e: MouseEvent) => {
+            this.pretime.style.display = "none";
+        };
 
         // 点击dot的事件
         this.dot.addEventListener("mousedown", (e: MouseEvent) => {
@@ -116,7 +136,6 @@ export class Progress extends BaseEvent {
                 if (scale < 0) {
                     scale = 0;
                 } else if (scale > 1) {
-
                     scale = 1;
                 }
 
@@ -136,6 +155,8 @@ export class Progress extends BaseEvent {
 
             };
             e.preventDefault();
-        })
+        });
+
+
     }
 }

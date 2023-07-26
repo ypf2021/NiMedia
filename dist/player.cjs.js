@@ -321,6 +321,24 @@ class Progress extends BaseEvent {
             if (this.video.paused)
                 this.video.play();
         };
+        // progress上面移动  时展示当前的时间
+        this.progress.onmousemove = (e) => {
+            let scale = e.offsetX / this.progress.offsetWidth;
+            if (scale < 0) {
+                scale = 0;
+            }
+            else if (scale > 1) {
+                scale = 1;
+            }
+            let pretime = formatTime(scale * this.video.duration);
+            this.pretime.style.display = "block";
+            this.pretime.innerHTML = pretime;
+            this.pretime.style.left = e.offsetX - 17 + "px";
+            e.preventDefault();
+        };
+        this.progress.onmouseleave = (e) => {
+            this.pretime.style.display = "none";
+        };
         // 点击dot的事件
         this.dot.addEventListener("mousedown", (e) => {
             let left = this.completedProgress.offsetWidth; //点击时，相对于进度条的位置
