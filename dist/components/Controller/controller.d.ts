@@ -6,8 +6,11 @@ export declare class Controller extends BaseEvent {
     private videoPlayBtn;
     private currentTime;
     private summaryTime;
+    private video;
+    private fullScreen;
     constructor(container: HTMLElement);
     get template(): HTMLElement | string;
     init(): void;
+    initControllerEvent(): void;
     initEvent(): void;
 }

@@ -7,6 +7,8 @@ export class Controller extends BaseEvent {
     private videoPlayBtn!: HTMLElement; // 播放按钮
     private currentTime!: HTMLElement; //当前时间
     private summaryTime!: HTMLElement; // 总体事件
+    private video!: HTMLVideoElement;
+    private fullScreen!: HTMLElement;
 
     constructor(container: HTMLElement) {
         super()
@@ -49,6 +51,27 @@ export class Controller extends BaseEvent {
         `;
     }
 
+    // 控制栏的事件 开始播放/关闭播放 ，全屏，设置
+    initControllerEvent() {
+        this.videoPlayBtn.onclick = (e: MouseEvent) => {
+            if (this.video.paused) {
+                this.video.play()
+            } else if (this.video.played) {
+                this.video.pause()
+            }
+        }
+
+        // 开启和关闭全屏
+        this.fullScreen.onclick = () => {
+            if (this.container.requestFullscreen && !document.fullscreenElement) {
+                // Element.requestFullscreen() 方法用于发出异步请求使元素进入全屏模式。(返回一个promise)
+                this.container.requestFullscreen();
+            } else if (document.fullscreenElement) {
+                document.exitFullscreen()  // 退出全屏函数仅仅绑定在document对象上，该点需要切记！！！
+            }
+        }
+    }
+
     initEvent(): void {
 
         // 启动视频
@@ -71,7 +94,7 @@ export class Controller extends BaseEvent {
             this.currentTime.innerHTML = formatTime(current);
         });
 
-        // 初始化时进行注册
+        // 初始化时进行变量注册
         this.on("mounted", () => {
             this.videoPlayBtn = this.container.querySelector(
                 `.${styles["video-start-pause"]} i`
@@ -82,6 +105,14 @@ export class Controller extends BaseEvent {
             this.summaryTime = this.container.querySelector(
                 `.${styles["video-duration-all"]}`
             )!;
+
+            this.video = this.container.querySelector("video")!;
+
+            this.fullScreen = this.container.querySelector(
+                `.${styles["video-fullscreen"]} i`
+            )!;
+
+            this.initControllerEvent();
         });
 
 

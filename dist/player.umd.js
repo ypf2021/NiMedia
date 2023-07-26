@@ -35,10 +35,10 @@
         "video-controls-hidden": "toolbar_video-controls-hidden__PscSU",
         "video-progress": "progress_video-progress__DMF70",
         "video-pretime": "progress_video-pretime__gDMzS",
-        "video-buffered": "pregress_video-buffered__xlu1O",
-        "video-completed": "pregress_video-completed__j0yvy",
-        "video-dot": "pregress_video-dot__u2nX7",
-        "video-dot-hidden": "pregress_video-dot-hidden__S-oLG",
+        "video-buffered": "progress_video-buffered__xlu1O",
+        "video-completed": "progress_video-completed__j0yvy",
+        "video-dot": "progress_video-dot__u2nX7",
+        "video-dot-hidden": "progress_video-dot-hidden__S-oLG",
         "video-play": "controller_video-play__aWE0Y",
         "video-subplay": "controller_video-subplay__ywUzK",
         "video-start-pause": "controller_video-start-pause__JnB3x",
@@ -63,13 +63,13 @@
     };
 
     const icon = {
-        "iconfont": "",
-        "icon-bofang": "",
-        "icon-shezhi": "",
-        "icon-yinliang": "",
-        "icon-quanping": "",
-        "icon-cuowutishi": "",
-        "icon-zanting": ""
+        iconfont: "main_iconfont__rq6b0",
+        "icon-bofang": "main_icon-bofang__jDO5s",
+        "icon-shezhi": "main_icon-shezhi__jiDcS",
+        "icon-yinliang": "main_icon-yinliang__dvwc6",
+        "icon-quanping": "main_icon-quanping__P8j59",
+        "icon-cuowutishi": "main_icon-cuowutishi__Pp9HP",
+        "icon-zanting": "main_icon-zanting__y4zTz",
     };
 
     class Controller extends BaseEvent {
@@ -111,6 +111,27 @@
             </div>
         `;
         }
+        // 控制栏的事件 开始播放/关闭播放 ，全屏，设置
+        initControllerEvent() {
+            this.videoPlayBtn.onclick = (e) => {
+                if (this.video.paused) {
+                    this.video.play();
+                }
+                else if (this.video.played) {
+                    this.video.pause();
+                }
+            };
+            // 开启和关闭全屏
+            this.fullScreen.onclick = () => {
+                if (this.container.requestFullscreen && !document.fullscreenElement) {
+                    // Element.requestFullscreen() 方法用于发出异步请求使元素进入全屏模式。(返回一个promise)
+                    this.container.requestFullscreen();
+                }
+                else if (document.fullscreenElement) {
+                    document.exitFullscreen(); // 退出全屏函数仅仅绑定在document对象上，该点需要切记！！！
+                }
+            };
+        }
         initEvent() {
             // 启动视频
             this.on("play", () => {
@@ -128,11 +149,14 @@
             this.on("timeupdate", (current) => {
                 this.currentTime.innerHTML = formatTime(current);
             });
-            // 初始化时进行注册
+            // 初始化时进行变量注册
             this.on("mounted", () => {
                 this.videoPlayBtn = this.container.querySelector(`.${styles["video-start-pause"]} i`);
                 this.currentTime = this.container.querySelector(`.${styles["video-duration-completed"]}`);
                 this.summaryTime = this.container.querySelector(`.${styles["video-duration-all"]}`);
+                this.video = this.container.querySelector("video");
+                this.fullScreen = this.container.querySelector(`.${styles["video-fullscreen"]} i`);
+                this.initControllerEvent();
             });
         }
     }
@@ -224,6 +248,7 @@
     class Progress extends BaseEvent {
         constructor(container) {
             super();
+            this.mouseDown = false;
             this.container = container;
             this.init();
             this.initEvent();
@@ -242,12 +267,90 @@
         `;
         }
         initEvent() {
+            // 初始化注册变量
             this.on("mounted", () => {
                 this.progress = this.container.querySelector(`.${styles["video-controls"]} .${styles["video-progress"]}`);
                 this.pretime = this.progress.children[0];
                 this.bufferedProgress = this.progress.children[1];
                 this.completedProgress = this.progress.children[2];
                 this.dot = this.progress.children[3];
+                this.video = this.container.querySelector("video");
+                this.initProgressEvent();
+            });
+            this.on("timeupdate", (current) => {
+                let scaleCurr = (this.video.currentTime / this.video.duration) * 100;
+                let scaleBuffer = ((this.video.buffered.end(0) + this.video.currentTime) / this.video.duration) * 100;
+                this.completedProgress.style.width = scaleCurr + "%";
+                this.dot.style.left = this.progress.offsetWidth * (scaleCurr / 100) - 5 + "px";
+                this.bufferedProgress.style.width = scaleBuffer + "%";
+            });
+            this.on("loadedmetadata", (summary) => { });
+        }
+        initProgressEvent() {
+            this.progress.onmouseenter = () => {
+                console.log("progress onmouseenter");
+                this.dot.className = `${styles["video-dot"]}`;
+            };
+            this.progress.onmouseleave = () => {
+                // 如果没有一直按着，离开的时候就隐藏
+                if (!this.mouseDown) {
+                    this.dot.className = `${styles["video-dot"]} ${styles["video-dot-hidden"]}`;
+                }
+            };
+            // 点击进度条 切换播放位置，点的位置，进度条的位置
+            this.progress.onclick = (e) => {
+                // 防止dot在progress上移动并放开的时候触发 process.onclick
+                if (e.target == this.dot) {
+                    return;
+                }
+                // 算出位置的百分比
+                // 此处有遗留bug
+                let scale = e.offsetX / this.progress.offsetWidth;
+                console.log("scale", e, scale, e.offsetX, this.progress.offsetWidth);
+                if (scale < 0) {
+                    console.log("scale == 0");
+                    scale = 0;
+                }
+                else if (scale > 1) {
+                    console.log("scale == 1");
+                    scale = 1;
+                }
+                this.dot.style.left = this.progress.offsetWidth * scale - 5 + "px";
+                this.bufferedProgress.style.width = scale * 100 + "%";
+                this.completedProgress.style.width = scale * 100 + "%";
+                // 设置播放位置
+                this.video.currentTime = Math.floor(scale * this.video.duration);
+                if (this.video.paused)
+                    this.video.play();
+            };
+            // 点击dot的事件
+            this.dot.addEventListener("mousedown", (e) => {
+                let left = this.completedProgress.offsetWidth; //点击时，相对于进度条的位置
+                let mouseX = e.pageX; // 点击时相对于页面的位置
+                this.mouseDown = true;
+                document.onmousemove = (e) => {
+                    // e.pageX - mouseX + left   移动过的距离 + 原本的距离
+                    let scale = (e.pageX - mouseX + left) / this.progress.offsetWidth;
+                    if (scale < 0) {
+                        scale = 0;
+                    }
+                    else if (scale > 1) {
+                        scale = 1;
+                    }
+                    this.dot.style.left = this.progress.offsetWidth * scale - 5 + "px";
+                    this.bufferedProgress.style.width = scale * 100 + "%";
+                    this.completedProgress.style.width = scale * 100 + "%";
+                    this.video.currentTime = Math.floor(scale * this.video.duration);
+                    if (this.video.paused)
+                        this.video.play();
+                    e.preventDefault();
+                };
+                document.onmouseup = (e) => {
+                    document.onmousemove = document.onmouseup = null;
+                    this.mouseDown = false;
+                    e.preventDefault();
+                };
+                e.preventDefault();
             });
         }
     }
@@ -309,13 +412,16 @@
             });
             this.on("loadedmetadata", (summary) => {
                 this.controller.emit("loadedmetadata", summary);
+                this.progress.emit("loadedmetadata", summary);
             });
             this.on("timeupdate", (current) => {
                 this.controller.emit("timeupdate", current);
+                this.progress.emit("timeupdate", current);
             });
             this.on("mounted", () => {
                 this.video = this.container.querySelector("video");
                 this.controller.emit("mounted");
+                this.progress.emit("mounted");
             });
             this.on("play", () => {
                 this.controller.emit("play");
@@ -372,10 +478,17 @@
             this.container.appendChild(this.toolbar.template);
             this.video = this.container.querySelector("video");
             // 执行toolbar的mounted
-            this.toolbar.emit("mounted");
+            // this.toolbar.emit("mounted")
         }
         ;
         initEvent() {
+            // 自动播放
+            this.on("mounted", (ctx) => {
+                ctx.playerOptions.autoplay && ctx.video.play();
+            });
+            // 初始化
+            this.toolbar.emit("mounted");
+            this.emit("mounted", this);
             this.container.onclick = (e) => {
                 if (e.target == this.video) {
                     if (this.video.paused) {
