@@ -40,7 +40,7 @@ export type AdaptationSet = {
     tag: "AdaptationSet";
     children: Array<SegmentTemplate | Representation>;
     segmentAlignment: boolean | null; // 分段对齐 如果为true,则代表该AS中的segment互不重叠
-    mineType: MediaType | null; // AdaptationSet 的媒体类型
+    mimeType: MediaType | null; // AdaptationSet 的媒体类型
     startWithSAP: number | null; // 每个Segment的第一帧都是关键帧
 }
 

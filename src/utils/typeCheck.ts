@@ -2,7 +2,7 @@ import { MediaType } from "../types/MpdFile";
 
 export function checkMediaType(s: string | null | undefined): s is MediaType {
     if (!s) {
-        return true
+        return false
     }
     return (
         s === "video/mp4" ||
