@@ -1,7 +1,12 @@
-import { AxiosData, AxiosHeader, AxiosMethod } from "../types/AxiosRequest";
-export declare function sendRequest(url: string, method: AxiosMethod, header?: AxiosHeader, responseType?: XMLHttpRequestResponseType, data?: AxiosData): Promise<JSON | ArrayBuffer | Blob | Document | string | {
-    [props: string]: any;
-}>;
-export declare function Axios(url?: string, method?: AxiosMethod, header?: AxiosHeader, responseType?: XMLHttpRequestResponseType, data?: AxiosData): Promise<string | Blob | ArrayBuffer | JSON | Document | {
-    [props: string]: any;
-}>;
+import { AxiosData, AxiosHeader, AxiosMethod, AxiosReturnType } from "../types/AxiosRequest";
+export declare function sendRequest(url: string, method: AxiosMethod, header?: AxiosHeader, responseType?: XMLHttpRequestResponseType, data?: AxiosData): Promise<AxiosReturnType>;
+export declare class Axios {
+    url?: string;
+    method?: AxiosMethod;
+    header?: AxiosHeader;
+    responseType?: XMLHttpRequestResponseType;
+    data?: AxiosData;
+    constructor(url?: string, method?: AxiosMethod, header?: AxiosHeader, responseType?: XMLHttpRequestResponseType, data?: AxiosData);
+    get(url: string, header?: AxiosHeader, responseType?: XMLHttpRequestResponseType): Promise<AxiosReturnType>;
+    post(url: string, header?: AxiosHeader, responseType?: XMLHttpRequestResponseType, data?: AxiosData): Promise<AxiosReturnType>;
+}

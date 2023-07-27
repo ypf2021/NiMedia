@@ -444,158 +444,115 @@ class ToolBar extends BaseEvent {
     }
 }
 
-class Player extends BaseEvent {
-    constructor(options) {
-        super();
-        this.playerOptions = {
-            url: "",
-            autoplay: false,
-            width: "100%",
-            height: "100%",
-        };
-        this.playerOptions = Object.assign(this.playerOptions, options);
-        this.init();
-        this.initComponent();
-        this.initContainer();
+// 获取文件后缀名
+function getFileExtension(file) {
+    let name;
+    if (typeof file === "string") {
+        name = file;
+    }
+    else {
+        name = file.name;
+    }
+    for (let i = name.length - 1; i >= 0; i--) {
+        if (name[i] === ".") {
+            return name.slice(i + 1, name.length);
+        }
+    }
+    return null;
+}
+
+class Mp4Player {
+    constructor(player) {
+        this.player = player;
+        this.player.video.src = this.player.playerOptions.url;
         this.initEvent();
     }
-    ;
-    init() {
-        let container = this.playerOptions.container;
-        if (!this.isTagValidate(container)) {
-            $warn("你传入的容器的元素类型不适合，建议传入块元素或者行内块元素，拒绝传入具有交互类型的元素例如input框等表单类型的元素");
-        }
-        this.container = container;
-    }
-    ;
-    initComponent() {
-        this.toolbar = new ToolBar(this.container);
-        this.loadingMask = new LoadingMask(this.container);
-        this.errorMask = new ErrorMask(this.container);
-    }
-    ;
-    initContainer() {
-        this.container.style.width = this.playerOptions.width;
-        this.container.style.height = this.playerOptions.height;
-        this.container.className = styles['video-container'];
-        this.container.innerHTML = `
-            <div class="${styles["video-wrapper"]}">
-            <video>
-                <source src="${this.playerOptions.url}" type="video/mp4">
-                你的浏览器暂不支持HTML5标签,非常抱歉
-                </source>
-            </video>
-            </div>
-        `;
-        this.container.appendChild(this.toolbar.template);
-        this.video = this.container.querySelector("video");
-        // 执行toolbar的mounted
-        // this.toolbar.emit("mounted")
-    }
-    ;
     initEvent() {
-        // 自动播放
-        this.on("mounted", (ctx) => {
-            ctx.playerOptions.autoplay && ctx.video.play();
-        });
-        // 初始化
-        this.toolbar.emit("mounted");
-        this.emit("mounted", this);
-        this.container.onclick = (e) => {
-            if (e.target == this.video) {
-                if (this.video.paused) {
-                    this.video.play();
+        this.player.toolbar.emit("mounted");
+        this.player.emit("mounted", this);
+        this.player.container.onclick = (e) => {
+            if (e.target == this.player.video) {
+                if (this.player.video.paused) {
+                    this.player.video.play();
                 }
-                else if (this.video.played) {
-                    this.video.pause();
+                else if (this.player.video.played) {
+                    this.player.video.pause();
                 }
             }
         };
-        //鼠标移入总体容器和移动时都会触发 showToolbar，判断是否隐藏。
-        this.container.addEventListener("mouseenter", (e) => {
-            this.toolbar.emit("showToolbar", e);
+        this.player.container.addEventListener("mouseenter", (e) => {
+            this.player.toolbar.emit("showtoolbar", e);
         });
-        this.container.addEventListener("mousemove", (e) => {
-            this.toolbar.emit("showtoolbar", e);
+        this.player.container.addEventListener("mousemove", (e) => {
+            this.player.toolbar.emit("showtoolbar", e);
         });
-        // 鼠标离开容器后进行隐藏
-        this.container.addEventListener("mouseleave", (e) => {
-            this.toolbar.emit("hidetoolbar");
+        this.player.container.addEventListener("mouseleave", (e) => {
+            this.player.toolbar.emit("hidetoolbar");
         });
-        // 视频加载完成后触发     loadedmetadata事件在元数据（metadata）被加载完成后触发。
-        this.video.addEventListener("loadedmetadata", (e) => {
-            // HTMLMediaElement.duration 属性以秒为单位给出媒体的长度
-            console.log("元数据加载完毕", this.video.duration);
-            this.toolbar.emit("loadedmetadata", this.video.duration);
+        this.player.video.addEventListener("loadedmetadata", (e) => {
+            this.player.playerOptions.autoplay && this.player.video.play();
+            this.player.toolbar.emit("loadedmetadata", this.player.video.duration);
         });
-        // currentTime更新时触发  当currentTime更新时会触发timeupdate事件。
-        // HTMLMediaElement.currentTime 属性会以秒为单位返回当前媒体元素的播放时间
-        this.video.addEventListener("timeupdate", (e) => {
-            this.toolbar.emit("timeupdate", this.video.currentTime);
+        this.player.video.addEventListener("timeupdate", (e) => {
+            this.player.toolbar.emit("timeupdate", this.player.video.currentTime);
         });
-        // 当视频可以再次播放的时候就移除loading和error的mask，
-        // 通常是为了应对在播放的过程中出现需要缓冲或者播放错误这种情况从而需要展示对应的mask
-        // 开始播放
-        this.video.addEventListener("play", (e) => {
-            console.log("视频播放 play");
-            this.loadingMask.removeLoadingMask();
-            this.errorMask.removeErrorMask();
-            this.toolbar.emit("play");
+        // 当视频可以再次播放的时候就移除loading和error的mask，通常是为了应对在播放的过程中出现需要缓冲或者播放错误这种情况从而需要展示对应的mask
+        this.player.video.addEventListener("play", (e) => {
+            this.player.loadingMask.removeLoadingMask();
+            this.player.errorMask.removeErrorMask();
+            this.player.toolbar.emit("play");
         });
-        // 暂停
-        this.video.addEventListener("pause", (e) => {
-            console.log("视频暂停 pause");
-            this.toolbar.emit("pause");
+        this.player.video.addEventListener("pause", (e) => {
+            this.player.toolbar.emit("pause");
         });
-        // 等待     当回放因暂时缺少数据而停止时，将触发等待事件。
-        this.video.addEventListener("waiting", (e) => {
-            console.log("视频缺少数据 waiting");
-            this.loadingMask.removeLoadingMask();
-            this.errorMask.removeErrorMask();
-            this.loadingMask.addLoadingMask();
+        this.player.video.addEventListener("waiting", (e) => {
+            this.player.loadingMask.removeLoadingMask();
+            this.player.errorMask.removeErrorMask();
+            this.player.loadingMask.addLoadingMask();
         });
-        // 出错     当用户代理试图获取媒体数据，但数据意外地没有到来时，将触发stalled事件。
-        this.video.addEventListener("stalled", (e) => {
-            console.log("视频加载发生错误stalled");
-            this.loadingMask.removeLoadingMask();
-            this.errorMask.removeErrorMask();
-            this.errorMask.addErrorMask();
+        //当浏览器请求视频发生错误的时候
+        this.player.video.addEventListener("stalled", (e) => {
+            console.log("视频加载发生错误");
+            this.player.loadingMask.removeLoadingMask();
+            this.player.errorMask.removeErrorMask();
+            this.player.errorMask.addErrorMask();
         });
-        // 出错    error 事件会在因为一些错误（如网络连接错误）导致无法加载资源的时候触发。
-        this.video.addEventListener("error", (e) => {
-            console.log("视频加载发生错误error");
-            this.loadingMask.removeLoadingMask();
-            this.errorMask.removeErrorMask();
-            this.errorMask.addErrorMask();
+        this.player.video.addEventListener("error", (e) => {
+            this.player.loadingMask.removeLoadingMask();
+            this.player.errorMask.removeErrorMask();
+            this.player.errorMask.addErrorMask();
         });
-        // 没完全加载    资源没有被完全加载时就会触发 abort 事件，但错误不会触发该事件。
-        this.video.addEventListener("abort", (e) => {
-            console.log("视频正在加载 abort");
-            this.loadingMask.removeLoadingMask();
-            this.errorMask.removeErrorMask();
-            this.errorMask.addErrorMask();
+        this.player.video.addEventListener("abort", (e) => {
+            this.player.loadingMask.removeLoadingMask();
+            this.player.errorMask.removeErrorMask();
+            this.player.errorMask.addErrorMask();
         });
     }
-    // 判定元素是否为合理的元素  不可以是行内元素和可交互的行内块级元素
-    isTagValidate(ele) {
-        //window.getComputedStyle 获取元素的css样式 只读
-        if (window.getComputedStyle(ele).display === 'block')
-            return true;
-        if (window.getComputedStyle(ele).display === 'inline')
-            return false;
-        if (window.getComputedStyle(ele).display === 'inline-block') {
-            if (ele instanceof HTMLImageElement ||
-                ele instanceof HTMLAudioElement ||
-                ele instanceof HTMLVideoElement ||
-                ele instanceof HTMLInputElement ||
-                ele instanceof HTMLCanvasElement ||
-                ele instanceof HTMLButtonElement) {
-                return false;
-            }
-            return true;
-        }
-        return true;
-    }
+}
+
+/******************************************************************************
+Copyright (c) Microsoft Corporation.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+***************************************************************************** */
+
+function __awaiter(thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
 }
 
 //  格式化播放时间工具
@@ -1010,7 +967,8 @@ function parseMpd(mpd, BASE_URL = "") {
         mpdRequest,
         type,
         mediaPresentationDuration,
-        maxSegmentDuration
+        maxSegmentDuration,
+        mpdModel
     };
 }
 function parseAdaptationSet(adaptationSet, path = "", sumSegment, type) {
@@ -1267,29 +1225,146 @@ function sendRequest(url, method, header = {}, responseType = "text", data) {
                 }
             }
         };
-        if (data) {
-            xhr.send(data);
-        }
+        xhr.send(data);
     });
 }
 // Axios类
-function Axios(url, method, header, responseType, data) {
-    this.url = url;
-    this.method = method;
-    this.header = header;
-    this.responseType = responseType;
-    this.data = data;
-    if (this.url && this.method) {
-        return sendRequest(url, method, header, responseType, data);
+class Axios {
+    constructor(url, method, header, responseType, data) {
+        this.url = url;
+        this.method = method;
+        this.header = header;
+        this.responseType = responseType;
+        this.data = data;
+    }
+    get(url, header, responseType) {
+        console.log(url);
+        return sendRequest(url, "get", header, responseType);
+    }
+    post(url, header, responseType, data) {
+        return sendRequest(url, "post", header, responseType, data);
     }
 }
-// get post 方法
-Axios.prototype.get = function (url, header, responseType) {
-    return sendRequest(url, "get", header, responseType);
-};
-Axios.prototype.post = function (url, header, responseType, data) {
-    return sendRequest(url, "post", header, responseType, data);
-};
+
+class MpdPlayer {
+    constructor(player) {
+        this.player = player;
+        this.axios = new Axios();
+        this.mpdUrl = this.player.playerOptions.url;
+        this.init();
+    }
+    // 
+    init() {
+        return __awaiter(this, void 0, void 0, function* () {
+            yield this.getMpdFile(this.mpdUrl);
+            this.RequestInfo.mpdRequest.forEach((child) => __awaiter(this, void 0, void 0, function* () {
+                let videoResolve = child.videoRequest["1920*1080"];
+                let audioResolve = child.audioRequest["48000"];
+                let val = yield Promise.all([
+                    this.getInitializationSegment(videoResolve[0].url),
+                    this.getInitializationSegment(audioResolve[0].url),
+                ]);
+                console.log(val);
+            }));
+        });
+    }
+    /**
+     * @description 获取并且解析MPD文件
+     */
+    getMpdFile(url) {
+        return __awaiter(this, void 0, void 0, function* () {
+            let val = yield this.axios.get(url, {}, "text");
+            let parser = new DOMParser(); // DOMParser 是一个 JavaScript API，用于将 XML 或 HTML 字符串解析为 DOM（Document Object Model）文档。
+            let document = parser.parseFromString(val.data, "text/xml");
+            let result = parseMpd(document, "https://dash.akamaized.net/envivio/EnvivioDash3/");
+            this.mpd = document;
+            this.RequestInfo = result;
+            console.log("mpd文件资源", document, ".  请求资源", result);
+        });
+    }
+    /**
+     * @description 根据解析到的MPD文件获取初始段（Initialization Segment）
+     */
+    getInitializationSegment(url) {
+        return this.axios.get(url, {}, "arraybuffer");
+    }
+}
+
+class Player extends BaseEvent {
+    constructor(options) {
+        super();
+        this.playerOptions = {
+            url: "",
+            autoplay: false,
+            width: "100%",
+            height: "100%",
+        };
+        this.playerOptions = Object.assign(this.playerOptions, options);
+        this.init();
+        this.initComponent();
+        this.initContainer();
+        // this.initEvent()
+        if (getFileExtension(this.playerOptions.url) === "mp4") {
+            new Mp4Player(this);
+        }
+        else if (getFileExtension(this.playerOptions.url) === "mpd") {
+            new MpdPlayer(this);
+        }
+    }
+    ;
+    init() {
+        let container = this.playerOptions.container;
+        if (!this.isTagValidate(container)) {
+            $warn("你传入的容器的元素类型不适合，建议传入块元素或者行内块元素，拒绝传入具有交互类型的元素例如input框等表单类型的元素");
+        }
+        this.container = container;
+    }
+    ;
+    /**
+     * @description 初始化播放器上的各种组件实例
+     */
+    initComponent() {
+        this.toolbar = new ToolBar(this.container);
+        this.loadingMask = new LoadingMask(this.container);
+        this.errorMask = new ErrorMask(this.container);
+    }
+    ;
+    initContainer() {
+        this.container.style.width = this.playerOptions.width;
+        this.container.style.height = this.playerOptions.height;
+        this.container.className = styles['video-container'];
+        this.container.innerHTML = `
+            <div class="${styles["video-wrapper"]}">
+                <video></video>
+            </div>
+        `;
+        this.container.appendChild(this.toolbar.template);
+        this.video = this.container.querySelector("video");
+        // 执行toolbar的mounted
+        // this.toolbar.emit("mounted")
+    }
+    ;
+    // 判定元素是否为合理的元素  不可以是行内元素和可交互的行内块级元素
+    isTagValidate(ele) {
+        //window.getComputedStyle 获取元素的css样式 只读
+        if (window.getComputedStyle(ele).display === 'block')
+            return true;
+        if (window.getComputedStyle(ele).display === 'inline')
+            return false;
+        if (window.getComputedStyle(ele).display === 'inline-block') {
+            if (ele instanceof HTMLImageElement ||
+                ele instanceof HTMLAudioElement ||
+                ele instanceof HTMLVideoElement ||
+                ele instanceof HTMLInputElement ||
+                ele instanceof HTMLCanvasElement ||
+                ele instanceof HTMLButtonElement) {
+                return false;
+            }
+            return true;
+        }
+        return true;
+    }
+}
 
 console.log('hello');
 

@@ -10,6 +10,18 @@ export type AxiosData = XMLHttpRequestBodyInit;
 
 export type AxiosHeader = {
     "Content-type"?: AxiosContentType;
-    "Range"?: string;
-    "Authroization"?: string
+    Range?: string;
+    Authroization?: string
 }
+
+// promise返回值类型
+export type AxiosReturnType = {
+    status: "success" | "fail";
+    data:
+    | JSON
+    | ArrayBuffer
+    | Blob
+    | Document
+    | string
+    | { [props: string]: any };
+};

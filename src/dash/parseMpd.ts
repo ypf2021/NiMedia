@@ -26,7 +26,7 @@ import {
 import { initMpdFile } from "./initMpd";
 
 // 解析出每段的请求地址
-export function parseMpd(mpd: Document, BASE_URL: string = ""): Object {
+export function parseMpd(mpd: Document, BASE_URL: string = "") {
     let mpdModel = initMpdFile(mpd).root;
     let type = mpdModel.type;
     console.log("pt", mpdModel.mediaPresentationDuration)
@@ -74,7 +74,8 @@ export function parseMpd(mpd: Document, BASE_URL: string = ""): Object {
         mpdRequest,
         type,
         mediaPresentationDuration,
-        maxSegmentDuration
+        maxSegmentDuration,
+        mpdModel
     }
 }
 
