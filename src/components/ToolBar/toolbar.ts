@@ -95,7 +95,6 @@ export class ToolBar extends BaseEvent {
             this.progress.emit("mounted")
         });
 
-
         this.on("play", () => {
             this.controller.emit("play")
         })

@@ -470,6 +470,7 @@
     class Mp4Player {
         constructor(player) {
             this.player = player;
+            // mp4直接将 playerOptions.url 中的内容进行赋值就可播放
             this.player.video.src = this.player.playerOptions.url;
             this.initEvent();
         }
@@ -1261,12 +1262,17 @@
         // 
         init() {
             return __awaiter(this, void 0, void 0, function* () {
+                // this.player.video.controls = true; // 当 video.controls 属性为 true 时，用户界面中会显示视频控件
                 yield this.getMpdFile(this.mpdUrl);
                 this.RequestInfo.mpdRequest.forEach((child) => __awaiter(this, void 0, void 0, function* () {
                     //每一个 child 都是 PeriodRequest 类型的 
                     yield this.handlePeriod(child);
                 }));
             });
+        }
+        initEvent() {
+            this.player.toolbar.emit("mounted");
+            this.player.emit("mounted", this);
         }
         /**
          * @description 获取并且解析MPD文件
@@ -1309,11 +1315,11 @@
         handleMediaSegment(videoRequest, audioRequest) {
             return __awaiter(this, void 0, void 0, function* () {
                 for (let i = 0; i < Math.min(videoRequest.length, audioRequest.length); i++) {
-                    let val = yield Promise.all([
+                    yield Promise.all([
                         this.getSegment(videoRequest[i].url),
                         this.getSegment(audioRequest[i].url),
                     ]);
-                    console.log(i + 1, val);
+                    // console.log(i + 1, val);
                 }
             });
         }
@@ -1369,8 +1375,9 @@
         `;
             this.container.appendChild(this.toolbar.template);
             this.video = this.container.querySelector("video");
-            // 执行toolbar的mounted
-            // this.toolbar.emit("mounted")
+            // video的宽高改为 容器的 content+padding
+            this.video.height = this.container.clientHeight;
+            this.video.width = this.container.clientWidth;
         }
         ;
         // 判定元素是否为合理的元素  不可以是行内元素和可交互的行内块级元素

@@ -19,6 +19,7 @@ export class MpdPlayer {
 
     // 
     async init() {
+        // this.player.video.controls = true; // 当 video.controls 属性为 true 时，用户界面中会显示视频控件
         await this.getMpdFile(this.mpdUrl);
         this.RequestInfo.mpdRequest.forEach(async (child) => {
             //每一个 child 都是 PeriodRequest 类型的 
@@ -27,6 +28,14 @@ export class MpdPlayer {
 
         });
     }
+
+    initEvent() {
+        this.player.toolbar.emit("mounted");
+        this.player.emit("mounted", this);
+    }
+
+
+
 
     /**
      * @description 获取并且解析MPD文件
@@ -83,7 +92,7 @@ export class MpdPlayer {
                 this.getSegment(videoRequest[i].url),
                 this.getSegment(audioRequest[i].url),
             ]);
-            console.log(i + 1, val);
+            // console.log(i + 1, val);
         }
     }
 

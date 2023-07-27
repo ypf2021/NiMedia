@@ -5,6 +5,7 @@ export class Mp4Player {
     private player: Player
     constructor(player: Player) {
         this.player = player
+        // mp4直接将 playerOptions.url 中的内容进行赋值就可播放
         this.player.video.src = this.player.playerOptions.url;
         this.initEvent()
     }

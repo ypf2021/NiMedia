@@ -64,8 +64,10 @@ class Player extends BaseEvent {
         `;
         this.container.appendChild(this.toolbar.template);
         this.video = this.container.querySelector("video")!
-        // 执行toolbar的mounted
-        // this.toolbar.emit("mounted")
+
+        // video的宽高改为 容器的 content+padding
+        this.video.height = this.container.clientHeight;
+        this.video.width = this.container.clientWidth;
     };
 
     // 判定元素是否为合理的元素  不可以是行内元素和可交互的行内块级元素
