@@ -17,5 +17,8 @@ export * from "./utils/typeCheck"
 export * from "./utils/typeSwitch"
 export * from "./dash/initMpd";
 export * from "./dash/parseMpd"
+export * from "./types/AxiosRequest"
+export * from "./axios/Axios"
+
 
 console.log('hello')

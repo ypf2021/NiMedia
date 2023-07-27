@@ -15,7 +15,16 @@ export function formatTime(seconds: number): string {
 
 // 将 Time 类型的时间转换为秒
 export function switchToSeconds(time: Time): number {
-    return time.hours * 3600 + time.minutes * 60 + time.seconds;
+    if (!time) {
+        return null
+    }
+
+    let sum = 0;
+    if (time.hours) sum += time.hours * 3600;
+    if (time.minutes) sum += time.minutes * 60;
+    if (time.seconds) sum += time.seconds;
+
+    return sum;
 }
 
 // 解析MPD文件的时间字符串
@@ -27,16 +36,40 @@ export function parseDuration(pt: string): Time {
     // S: 表示秒。
     // F: 表示帧数。
     // T: 表示时间段的开始时间。
-
-    var ptTemp: any = pt.split("T")[1];
-    ptTemp = ptTemp.split("H");
-    var hours = ptTemp[0];
-    var minutes = ptTemp[1].split("M")[0]
-    var seconds = ptTemp[1].split("M")[1].split("S")[0];
-    var hundredths = seconds.split(".");
-    return {
-        hours: Number(hours),
-        minutes: Number(minutes),
-        seconds: Number(hundredths[0]),
+    if (!pt) {
+        return null
     }
+
+    let hours, minutes, seconds;
+    for (let i = pt.length - 1; i >= 0; i--) {
+        if (pt[i] === "S") {
+            let j = i;
+            while (pt[i] !== "M" && pt[i] !== "H" && pt[i] !== "T") {
+                i--;
+            }
+            i += 1;
+            seconds = parseInt(pt.slice(i, j));
+        } else if (pt[i] === "M") {
+            let j = i;
+            while (pt[i] !== "H" && pt[i] !== "T") {
+                i--;
+            }
+            i += 1;
+            minutes = parseInt(pt.slice(i, j));
+        } else if (pt[i] === "H") {
+            let j = i;
+            while (pt[i] !== "T") {
+                i--;
+            }
+            i += 1;
+            hours = parseInt(pt.slice(i, j));
+        }
+    }
+
+    return {
+        hours,
+        minutes,
+        seconds,
+    }
+
 }

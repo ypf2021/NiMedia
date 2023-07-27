@@ -6,6 +6,7 @@ import {
     RangeRequest,
     Representation,
     SegmentRequest,
+    SegmentTemplate
 } from "../types/MpdFile";
 
 import { parseDuration, switchToSeconds } from "../utils/format";
@@ -24,9 +25,14 @@ import {
 
 import { initMpdFile } from "./initMpd";
 
-export function parseMpd(mpd: Document) {
+// 解析出每段的请求地址
+export function parseMpd(mpd: Document, BASE_URL: string = ""): Object {
     let mpdModel = initMpdFile(mpd).root;
     let type = mpdModel.type;
+    console.log("pt", mpdModel.mediaPresentationDuration)
+    console.log("pt", mpdModel.maxSegmentDuration)
+
+    // console.log(parseDuration(mpdModel.mediaPresentationDuration));
     let mediaPresentationDuration = switchToSeconds(
         parseDuration(mpdModel.mediaPresentationDuration)
     )
@@ -39,7 +45,7 @@ export function parseMpd(mpd: Document) {
     // 遍历文档中的每一个Period，Period代表着一个完整的音视频，不同的Period具有不同内容的音视频，
     // 例如广告和正片就属于不同的Period
     mpdModel.children.forEach((period) => {
-        let path = ""; // baseUrl
+        let path = "" + BASE_URL; // baseUrl
         let videoRequest: MediaVideoResolve;
         let audioRequest: MeidaAudioResolve;
         // 再处理 period 的子元素
@@ -48,7 +54,7 @@ export function parseMpd(mpd: Document) {
             let child = period.children[i];
             if (checkBaseURL(child)) {
                 path += child.url;
-                break
+                break;
             }
         }
         // 再将里面的 AdaptationSet进行处理
@@ -56,7 +62,7 @@ export function parseMpd(mpd: Document) {
             if (checkAdaptationSet(child)) {
                 // parseAdaptationSet(child, path, sumSegment);
                 if (child.mimeType === "audio/mp4") {
-                    audioRequest = parseAdaptationSet(child, path, sumSegment, child.mimeType);
+                    audioRequest = parseAdaptationSet(child, path, sumSegment, child.mimeType) as MeidaAudioResolve;
                 } else if (child.mimeType === "video/mp4") {
                     videoRequest = parseAdaptationSet(child, path, sumSegment, child.mimeType)
                 }
@@ -77,28 +83,38 @@ export function parseAdaptationSet(
     path: string = "",
     sumSegment: number | null,
     type: MediaType
-) {
+): Object {
     let children = adaptationSet.children;
     let hasTemplate = false;
-    let generateInitializationUrl, // 初始化url
-        initializationFormat,
-        generateMediaUrl,
-        mediaFormat;
+    // let generateInitializationUrl, // 初始化url
+    //     initializationFormat,
+    //     generateMediaUrl,
+    //     mediaFormat;
+    let template: SegmentTemplate;
     for (let i = children.length - 1; i >= 0; i--) {
         let child = children[i];
         if (checkSegmentTemplate(child)) {
             hasTemplate = true;
-            [generateInitializationUrl, initializationFormat] = generateTemplateTuple(
-                child.initialization!
-            );
-            [generateMediaUrl, mediaFormat] = generateTemplateTuple(child.media!);
+            // [generateInitializationUrl, initializationFormat] = generateTemplateTuple(
+            //     child.initialization!
+            // );
+            // [generateMediaUrl, mediaFormat] = generateTemplateTuple(child.media!);
+            template = child;
             break;
         }
     }
 
-    let mediaResolve: MediaVideoResolve | MeidaAudioResolve;
+    let mediaResolve: MediaVideoResolve | MeidaAudioResolve = {};
     children.forEach((child) => {
         if (checkRepresentation(child)) {
+            let generateInitializationUrl,
+                initializationFormat,
+                generateMediaUrl,
+                mediaFormat;
+            if (hasTemplate) {
+                [generateInitializationUrl, initializationFormat] = generateTemplateTuple(template.initialization);
+                [generateMediaUrl, mediaFormat] = generateTemplateTuple(template.media);
+            }
             let obj = parseRepresentation(
                 child,
                 hasTemplate,
@@ -166,29 +182,50 @@ export function parseRepresentationWithSegmentTemplateOuter(
         initializationSegment!;
     let [generateMediaUrl, mediaFormat] = mediaSegment!;
     // 1.处理对于Initialization Segment的请求
-    initializationFormat.forEach((item) => {
-        if (item === "RepresentationID") {
-            item = representation.id;
-        } else if (item === "Number") {
-            item = "1";
+    // initializationFormat.forEach((item) => {
+    //     if (item === "RepresentationID") {
+    //         item = representation.id;
+    //     } else if (item === "Number") {
+    //         item = "1";
+    //     }
+    // });
+    for (let i in initializationFormat) {
+        if (initializationFormat[i] === "RepresentationID") {
+            initializationFormat[i] = representation.id;
+        } else if (initializationFormat[i] === "Number") {
+            initializationFormat[i] = "1";
         }
-    });
+    }
     requestArray.push({
         type: "segement",
         url: path + generateInitializationUrl(...initializationFormat),
     });
     // 2.处理对于Media Segment的请求
-    mediaFormat.forEach((item) => {
-        if (item === "RepresentationID") {
-            item = representation.id;
-        } else if (item === "Number") {
-            item = "1";
+    // mediaFormat.forEach((item) => {
+    //     if (item === "RepresentationID") {
+    //         item = representation.id;
+    //     } else if (item === "Number") {
+    //         item = "1";
+    //     }
+    // });
+
+    for (let i in mediaFormat) {
+        if (mediaFormat[i] === "RepresentationID") {
+            mediaFormat[i] = representation.id;
         }
-    });
+    }
+
+
     for (let index = 1; index <= sumSegment; index++) {
-        mediaFormat.forEach((item) => {
-            if (item === "Number") item = String(index);
-        });
+        // mediaFormat.forEach((item) => {
+        //     if (item === "Number") item = String(index);
+        // });
+        for (let i in mediaFormat) {
+            if (mediaFormat[i] === "Number") {
+                mediaFormat[i] = `${index}`;
+            }
+        }
+
         requestArray.push({
             type: "segement",
             url: path + generateMediaUrl(...mediaFormat),
@@ -276,7 +313,7 @@ export function parseRepresentationWithSegmentBase(
             requestArray.push({
                 type: "range",
                 url: path,
-                range: child.child.range!,
+                range: child.children.range!,
             });
             requestArray.push({
                 type: "range",
@@ -304,6 +341,9 @@ export function generateTemplateTuple(
             s = s.slice(i + 1);
             i = 0;
             continue;
+        }
+        if (i + 1 === s.length) {
+            splitStr.push(s);
         }
     }
     return [

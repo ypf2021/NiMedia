@@ -1,5 +1,6 @@
 import { PlayerOptions, $warn, styles, ToolBar, LoadingMask, ErrorMask, BaseEvent } from "../../index";;
 import { parseMpd } from "../../dash/parseMpd"
+import { Axios } from "../../axios/Axios";
 import "./player.less";
 import "../../components/main.less";
 
