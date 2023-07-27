@@ -11,6 +11,40 @@ export type MediaType =
     | "image/png"
     | "image/jpeg";
 
+/**
+ * @description video类型媒体的分辨率
+ */
+export type MediaVideoResolve = {
+    "768*432"?: any;
+    "1024*576"?: any;
+    "1280*720"?: any;
+    "320*180"?: any;
+    "1920*1080"?: any;
+    "512*288"?: any;
+    "640*360"?: any;
+}
+
+export type MeidaAudioResolve = {
+
+}
+
+/**
+ * @description 用于请求某一个资源的一部分,范围请求
+ */
+export type RangeRequest = {
+    type: "range";
+    url: string;
+    range?: string;
+}
+/**
+ * @description 请求整个媒体段
+ */
+export type SegmentRequest = {
+    type: "segement";
+    url: string;
+}
+
+
 export type Mpd = {
     tag: "MPD";
     type: "static" | "dynamic"; // 点播对应static  直播对应dynamic
@@ -19,6 +53,7 @@ export type Mpd = {
     mediaPresentationDuration: string | null; // 表示媒体文件的总时长
     minBufferTime: string | null; // 至少需要缓冲的时间
     minimumUpdatePeriod: string | null; // 至少每隔这么长时间,MPD就有可能更新一次,只用于直播流
+    maxSegmentDuration: string | null;
 };
 
 // Period代表某一个时间段
@@ -27,7 +62,7 @@ export type Period = {
     id: string | null;
     duration: string | null; // Period的时长
     start: string | null; // Period的开始时间
-    children: Array<AdaptationSet>; // AdaptationSet 自适应子集
+    children: Array<AdaptationSet | BaseURL>; // AdaptationSet 自适应子集
 }
 
 export type BaseURL = {
@@ -96,7 +131,8 @@ export type SegmentList = {
 
 export type SegmentURL = {
     tag: "SegmentURL";
-    media: string;
+    media?: string;
+    mediaRange?: string
 }
 
 export type MpdFile = {

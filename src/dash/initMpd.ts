@@ -29,7 +29,7 @@ export function initMpd(mpd: Element): Mpd {
     let mediaPresentationDuration = mpd.getAttribute("mediaPresentationDuration");
     let minBufferTime = mpd.getAttribute("minBufferTime");
     let minimumUpdatePeriod = mpd.getAttribute("minimumUpdatePeriod");
-
+    let maxSegmentDuration = mpd.getAttribute("maxSegmentDuration");
     let children = new Array<Period>();
     mpd.querySelectorAll("Period").forEach(item => {
         children.push(initPeriod(item))
@@ -42,7 +42,8 @@ export function initMpd(mpd: Element): Mpd {
         availabilityStartTime,
         mediaPresentationDuration,
         minBufferTime,
-        minimumUpdatePeriod
+        minimumUpdatePeriod,
+        maxSegmentDuration
     }
 }
 

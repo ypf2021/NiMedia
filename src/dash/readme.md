@@ -35,6 +35,18 @@ MPD文件构成
 
 一条完整的mpeg  dash码流可能由一个或多个Period构成，每个Period代表某一个时间段。比如某条码流有60秒时间，Period1从0-15秒，Period2从16秒到40秒，Period3从41秒到60秒。同一个Period内，意味着可用的媒体内容及其各个可用码率（Representation）不会发生变更。直播情况下，“可能”需要周期地去服务器更新MPD文件，服务器可能会移除旧的已经过时的Period,或是添加新的Period。新的Period中可能会添加新的可用码率或去掉上一个Period中存在的某些码率, 即上面的 Representation 字段
 
+每个 Period 可以包含以下内容：
+
+    Adaptation Set：Adaptation Set 包含了一组具有相同媒体类型（如视频、音频）和相同媒体特性（如编码方式、分辨率、比特率等）的媒体内容。
+
+    Subtitle Stream：Subtitle Stream 用于描述字幕流。
+
+    Segment Template：Segment Template 定义了在该 Period 中的所有媒体内容的 URL 模板及其时间戳信息。
+
+    Base URL：Base URL 用于指定在 Segment Template 中使用的相对 URL 的基础 URL。
+
+
+
 **属性:**
 
 duration:Period的时长;
