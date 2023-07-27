@@ -1,5 +1,6 @@
 import {
     AdaptationSet,
+    MediaType,
     MediaVideoResolve,
     MeidaAudioResolve,
     RangeRequest,
@@ -23,7 +24,7 @@ import {
 
 import { initMpdFile } from "./initMpd";
 
-function parseMpd(mpd: Document) {
+export function parseMpd(mpd: Document) {
     let mpdModel = initMpdFile(mpd).root;
     let type = mpdModel.type;
     let mediaPresentationDuration = switchToSeconds(
@@ -33,12 +34,14 @@ function parseMpd(mpd: Document) {
         parseDuration(mpdModel.maxSegmentDuration)
     )
     let sumSegment = maxSegmentDuration ? Math.ceil(mediaPresentationDuration / maxSegmentDuration) : null;
+    // 代表的是整个MPD文档中的需要发送的所有xhr请求地址，包括多个Period对应的视频和音频请求地址  
+    let mpdRequest = [];
     // 遍历文档中的每一个Period，Period代表着一个完整的音视频，不同的Period具有不同内容的音视频，
     // 例如广告和正片就属于不同的Period
     mpdModel.children.forEach((period) => {
         let path = ""; // baseUrl
-        const videoRequest: MediaVideoResolve = {};
-        const audioRequest: MeidaAudioResolve = {};
+        let videoRequest: MediaVideoResolve;
+        let audioRequest: MeidaAudioResolve;
         // 再处理 period 的子元素
         // 先拿到基础url
         for (let i = period.children.length - 1; i >= 0; i--) {
@@ -51,16 +54,29 @@ function parseMpd(mpd: Document) {
         // 再将里面的 AdaptationSet进行处理
         period.children.forEach((child) => {
             if (checkAdaptationSet(child)) {
-                parseAdaptationSet(child, path, sumSegment);
+                // parseAdaptationSet(child, path, sumSegment);
+                if (child.mimeType === "audio/mp4") {
+                    audioRequest = parseAdaptationSet(child, path, sumSegment, child.mimeType);
+                } else if (child.mimeType === "video/mp4") {
+                    videoRequest = parseAdaptationSet(child, path, sumSegment, child.mimeType)
+                }
             }
         });
-    })
+        mpdRequest.push({ videoRequest, audioRequest });
+    });
+    return {
+        mpdRequest,
+        type,
+        mediaPresentationDuration,
+        maxSegmentDuration
+    }
 }
 
 export function parseAdaptationSet(
     adaptationSet: AdaptationSet,
     path: string = "",
-    sumSegment: number | null
+    sumSegment: number | null,
+    type: MediaType
 ) {
     let children = adaptationSet.children;
     let hasTemplate = false;
@@ -80,7 +96,7 @@ export function parseAdaptationSet(
         }
     }
 
-    let mediaResolve: MediaVideoResolve;
+    let mediaResolve: MediaVideoResolve | MeidaAudioResolve;
     children.forEach((child) => {
         if (checkRepresentation(child)) {
             let obj = parseRepresentation(
@@ -88,6 +104,7 @@ export function parseAdaptationSet(
                 hasTemplate,
                 path,
                 sumSegment,
+                type,
                 [generateInitializationUrl, initializationFormat],
                 [generateMediaUrl, mediaFormat]
             );
@@ -103,10 +120,16 @@ export function parseRepresentation(
     hasTemplate: boolean = false,
     path: string = "",
     sumSegment: number | null,
+    type: MediaType,
     initializationSegment?: [Function, string[]],
     mediaSegment?: [Function, string[]]
 ): MediaVideoResolve {
-    let resolve = `${representation.width}*${representation.height}`;
+    let resolve; // 计算分辨率
+    if (type === "video/mp4") {
+        resolve = `${representation.width}*${representation.height}`; //视频就是通过 w * h
+    } else if (type === "audio/mp4") {
+        resolve = `${representation.audioSamplingRate}`
+    }
     let obj = {};
     // 一. 如果该适应集 中具有标签SegmentTemplate，则接下来的Representation中请求的Initialization Segment和Media Segment的请求地址一律以SegmentTemplate中的属性为基准
     if (hasTemplate) {

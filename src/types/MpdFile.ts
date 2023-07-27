@@ -15,17 +15,17 @@ export type MediaType =
  * @description video类型媒体的分辨率
  */
 export type MediaVideoResolve = {
-    "768*432"?: any;
-    "1024*576"?: any;
-    "1280*720"?: any;
-    "320*180"?: any;
-    "1920*1080"?: any;
-    "512*288"?: any;
-    "640*360"?: any;
+    "320*180"?: Array<SegmentRequest | RangeRequest>;
+    "512*288"?: Array<SegmentRequest | RangeRequest>;
+    "640*360"?: Array<SegmentRequest | RangeRequest>;
+    "768*432"?: Array<SegmentRequest | RangeRequest>;
+    "1024*576"?: Array<SegmentRequest | RangeRequest>;
+    "1280*720"?: Array<SegmentRequest | RangeRequest>;
+    "1920*1080"?: Array<SegmentRequest | RangeRequest>;
 }
 
 export type MeidaAudioResolve = {
-
+    [props: string]: Array<SegmentRequest | RangeRequest>;
 }
 
 /**
@@ -104,7 +104,8 @@ export type Representation = {
     width: number;
     height: number; // width * height --> 视频的分辨率
     mimeType: MediaType | null;
-    children?: Array<BaseURL | SegmentBase | SegmentList>
+    audioSamplingRate: string | null;
+    children?: Array<BaseURL | SegmentBase | SegmentList>;
 }
 
 // 每个Representation由一个或者多个segment组成，每个segment由一个对应的URL指定，

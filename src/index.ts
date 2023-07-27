@@ -12,11 +12,10 @@ export * from "./components/Controller/controller"
 export * from "./components/Player/player";
 export * from "./types/EventObject"
 export * from "./utils/format";
-export * from "./utils/map"
 export * from "./types/MpdFile"
 export * from "./utils/typeCheck"
 export * from "./utils/typeSwitch"
 export * from "./dash/initMpd";
-
+export * from "./dash/parseMpd"
 
 console.log('hello')
