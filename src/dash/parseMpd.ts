@@ -6,7 +6,8 @@ import {
     RangeRequest,
     Representation,
     SegmentRequest,
-    SegmentTemplate
+    SegmentTemplate,
+    PeriodRequest
 } from "../types/MpdFile";
 
 import { parseDuration, switchToSeconds } from "../utils/format";
@@ -41,7 +42,8 @@ export function parseMpd(mpd: Document, BASE_URL: string = "") {
     )
     let sumSegment = maxSegmentDuration ? Math.ceil(mediaPresentationDuration / maxSegmentDuration) : null;
     // 代表的是整个MPD文档中的需要发送的所有xhr请求地址，包括多个Period对应的视频和音频请求地址  
-    let mpdRequest = [];
+    let mpdRequest = new Array<PeriodRequest>();
+
     // 遍历文档中的每一个Period，Period代表着一个完整的音视频，不同的Period具有不同内容的音视频，
     // 例如广告和正片就属于不同的Period
     mpdModel.children.forEach((period) => {
@@ -218,18 +220,18 @@ export function parseRepresentationWithSegmentTemplateOuter(
 
 
     for (let index = 1; index <= sumSegment; index++) {
-        // mediaFormat.forEach((item) => {
-        //     if (item === "Number") item = String(index);
-        // });
+
+        // console.log('mediaFormat', mediaFormat)  这里用mediaFormat 会出现问题
+        let copy = [...mediaFormat];
         for (let i in mediaFormat) {
-            if (mediaFormat[i] === "Number") {
-                mediaFormat[i] = `${index}`;
+            if (copy[i] === "Number") {
+                copy[i] = `${index}`;
             }
         }
 
         requestArray.push({
             type: "segement",
-            url: path + generateMediaUrl(...mediaFormat),
+            url: path + generateMediaUrl(...copy),
         });
     }
 

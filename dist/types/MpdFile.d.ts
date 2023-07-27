@@ -17,6 +17,10 @@ export type MediaVideoResolve = {
 export type MeidaAudioResolve = {
     [props: string]: Array<SegmentRequest | RangeRequest>;
 };
+export type PeriodRequest = {
+    "videoRequest": MediaVideoResolve;
+    "audioRequest": MeidaAudioResolve;
+};
 /**
  * @description 用于请求某一个资源的一部分,范围请求
  */

@@ -1,5 +1,6 @@
 import { Player } from "./player";
 import { AxiosReturnType } from "../../types/AxiosRequest";
+import { PeriodRequest, RangeRequest, SegmentRequest } from "../../types/MpdFile";
 export declare class MpdPlayer {
     private player;
     private mpd;
@@ -12,8 +13,12 @@ export declare class MpdPlayer {
      * @description 获取并且解析MPD文件
      */
     getMpdFile(url: string): Promise<void>;
+    handlePeriod(child: PeriodRequest): Promise<void>;
+    handleInitializationSegment(videoUrl: string, audioUrl: string): Promise<void>;
     /**
-     * @description 根据解析到的MPD文件获取初始段（Initialization Segment）
+     * @description @description 根据解析到的MPD文件的段（Initialization Segment 和 Media Segment）
+     * 发起请求
      */
-    getInitializationSegment(url: string): Promise<AxiosReturnType>;
+    getSegment(url: string): Promise<AxiosReturnType>;
+    handleMediaSegment(videoRequest: (SegmentRequest | RangeRequest)[], audioRequest: (SegmentRequest | RangeRequest)[]): Promise<void>;
 }

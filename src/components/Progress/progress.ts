@@ -152,7 +152,6 @@ export class Progress extends BaseEvent {
                 document.onmousemove = document.onmouseup = null;
                 this.mouseDown = false;
                 e.preventDefault();
-
             };
             e.preventDefault();
         });
