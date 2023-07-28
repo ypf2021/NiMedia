@@ -12,7 +12,7 @@ export * from "./components/Controller/controller"
 export * from "./components/Player/player";
 export * from "./types/EventObject"
 export * from "./utils/format";
-export * from "./types/MpdFile"
+export * from "./types/dash/MpdFile"
 export * from "./utils/typeCheck"
 export * from "./utils/typeSwitch"
 export * from "./dash/initMpd";

@@ -8,7 +8,7 @@ import {
     SegmentRequest,
     SegmentTemplate,
     PeriodRequest
-} from "../types/MpdFile";
+} from "../types/dash/MpdFile";
 
 import { parseDuration, switchToSeconds } from "../utils/format";
 

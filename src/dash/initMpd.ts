@@ -11,7 +11,7 @@ import {
     AdaptationSet,
     SegmentTemplate,
     Period,
-} from "../types/MpdFile";
+} from "../types/dash/MpdFile";
 import { checkMediaType } from "../utils/typeCheck";
 import { string2boolean, string2number } from "../utils/typeSwitch";
 import { $warn } from "../utils/warn";
