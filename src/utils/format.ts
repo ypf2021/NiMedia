@@ -1,4 +1,4 @@
-import { Time } from "../types/Time";
+import { Time } from "../types/dash/Time";
 
 //  格式化播放时间工具
 export function addZero(num: number): string {

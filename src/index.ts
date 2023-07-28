@@ -15,10 +15,13 @@ export * from "./utils/format";
 export * from "./types/dash/MpdFile"
 export * from "./utils/typeCheck"
 export * from "./utils/typeSwitch"
-export * from "./dash/initMpd";
-export * from "./dash/parseMpd"
-export * from "./types/AxiosRequest"
-export * from "./axios/Axios"
+
+
+// 一下部分在 v1.0.0之后都更新弃用了
+// export * from "./dash/initMpd";  
+// export * from "./dash/parseMpd"
+// export * from "./types/AxiosRequest"
+// export * from "./axios/Axios"
 
 
 console.log('hello')
