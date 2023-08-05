@@ -14,6 +14,7 @@ const FactoryMaker = (function () {
             this.__single_instanceMap = {};
         }
 
+        // 每次调用都返回 一个 新的 new 实例
         getClassFactory<T>(classConstructor: BaseConstructor<T>): FactoryFunction<T> {
             let factory = this.__class_factoryMap[classConstructor.name] as FactoryFunction<T>;
             let ctx = this;
@@ -31,6 +32,7 @@ const FactoryMaker = (function () {
             return factory
         }
 
+        // 单一实例
         getSingleFactory<T>(classConstructor: BaseConstructor<T>): FactoryFunction<T> {
             let factory = this.__single_factoryMap[classConstructor.name];
             let ctx = this;
@@ -52,6 +54,7 @@ const FactoryMaker = (function () {
         }
 
         merge<T>(classConstructor: BaseConstructor<T>, context: FactoryObject, ...args: any[]): T {
+            // 在调用 getClassFactory 返回的 create 函数的时候，会在这里进行merge，如果写入的context不存在就跳过，如果存在在判断是否需要覆写，如果不覆写，优先ne context中的内容
             let extensionObjejct = context[classConstructor.name]
             if (extensionObjejct) {
                 // 如果获取到的上下文的属性classConstructor.name对应的对象上具有覆写（override）属性，则意味着需要覆写classConstructor上对应的属性

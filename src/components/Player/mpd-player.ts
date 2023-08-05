@@ -1,3 +1,4 @@
+// 以下注释部分全部弃用
 // import { parseMpd } from "../../dash/parseMpd";
 // import { Axios } from "../../axios/Axios";
 // import { Player } from "./player";
@@ -95,13 +96,14 @@
 //             // console.log(i + 1, val);
 //         }
 //     }
-
-
-
 // }
 
-export class MpdPlayer {
-    constructor() {
+import MediaPlayer from "../../dash/MediaPlayer";
+import { Player } from "./player"
 
+export class MpdPlayer {
+    constructor(player: Player) {
+        let mediaPlayer = MediaPlayer().create();
+        mediaPlayer.attachSource(player.playerOptions.url)
     }
 }
