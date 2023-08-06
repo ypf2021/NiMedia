@@ -98,7 +98,10 @@ export type SegmentTemplate = {
     tag: "SegmentTemplate";
     initialization?: string;
     media?: string; // 指定用来生成Segment列表的模板,可以包含的通配符有$RepresentaonID$，$Bandwidth$，$Number$, $Time$
+    timescale?: number;
+    duration?: number;
     [props: string]: any;
+
 }
 
 

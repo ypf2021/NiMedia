@@ -782,6 +782,79 @@ var DomNodeTypes;
     DomNodeTypes[DomNodeTypes["DOCUMENT_NODE"] = 9] = "DOCUMENT_NODE";
 })(DomNodeTypes || (DomNodeTypes = {}));
 
+//  格式化播放时间工具
+function addZero(num) {
+    return num > 9 ? "" + num : "0" + num;
+}
+function formatTime(seconds) {
+    seconds = Math.floor(seconds);
+    let minute = Math.floor(seconds / 60);
+    let second = seconds % 60;
+    return addZero(minute) + ":" + addZero(second);
+}
+// 将 Time 类型的时间转换为秒
+function switchToSeconds(time) {
+    if (!time) {
+        return null;
+    }
+    let sum = 0;
+    if (time.hours)
+        sum += time.hours * 3600;
+    if (time.minutes)
+        sum += time.minutes * 60;
+    if (time.seconds)
+        sum += time.seconds;
+    return sum;
+}
+// 解析MPD文件的时间字符串
+// Period 的 start 和 duration 属性使用了 NPT 格式表示该期间的开始时间和持续时间，即 PT0S 和 PT60S
+function parseDuration(pt) {
+    // NPT 格式的字符串以 PT 开头，后面跟着一个时间段的表示，例如 PT60S 表示 60 秒的时间段。时间段可以包含以下几个部分：
+    // H: 表示小时。
+    // M: 表示分钟。
+    // S: 表示秒。
+    // F: 表示帧数。
+    // T: 表示时间段的开始时间。
+    // if (!pt) {
+    //     return null
+    // }
+    let hours = 0, minutes = 0, seconds = 0;
+    for (let i = pt.length - 1; i >= 0; i--) {
+        if (pt[i] === "S") {
+            let j = i;
+            while (pt[i] !== "M" && pt[i] !== "H" && pt[i] !== "T") {
+                i--;
+            }
+            i += 1;
+            seconds = parseInt(pt.slice(i, j));
+        }
+        else if (pt[i] === "M") {
+            let j = i;
+            while (pt[i] !== "H" && pt[i] !== "T") {
+                i--;
+            }
+            i += 1;
+            minutes = parseInt(pt.slice(i, j));
+        }
+        else if (pt[i] === "H") {
+            let j = i;
+            while (pt[i] !== "T") {
+                i--;
+            }
+            i += 1;
+            hours = parseInt(pt.slice(i, j));
+        }
+    }
+    return {
+        hours,
+        minutes,
+        seconds,
+    };
+}
+
+/**
+ * @description 该类仅用于处理MPD文件中具有SegmentTemplate此种情况
+ */
 class SegmentTemplateParser {
     constructor(ctx, ...args) {
         this.config = ctx.context;
@@ -789,26 +862,244 @@ class SegmentTemplateParser {
     }
     setup() {
     }
+    /**
+     * @param {(Mpd | Period | AdaptationSet)} Mpd
+     * @memberof SegmentTemplateParser
+     * @description MPDdom设置持续时间等内容
+     */
+    parse(Mpd) {
+        DashParser.setDurationForRepresentation(Mpd);
+        this.setSegmentDurationForRepresentation(Mpd);
+        this.parseNodeSegmentTemplate(Mpd);
+    }
+    /**
+     * @param {Mpd} Mpd
+     * @memberof SegmentTemplateParser
+     * @description 设置 Representation_asArray 的 segmentDuration 一般为 (duration / timescale)
+     */
+    setSegmentDurationForRepresentation(Mpd) {
+        let maxSegmentDuration = switchToSeconds(parseDuration(Mpd.maxSegmentDuration));
+        Mpd["Period_asArray"].forEach(Period => {
+            Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
+                AdaptationSet["Representation_asArray"].forEach(Representation => {
+                    if (Representation["SegmentTemplate"]) {
+                        if (Representation["SegmentTemplate"].duration) {
+                            let duration = Representation["SegmentTemplate"].duration;
+                            let timescale = Representation["SegmentTemplate"].timescale || 1;
+                            Representation.segmentDuration = (duration / timescale).toFixed(1);
+                        }
+                        else {
+                            if (maxSegmentDuration) {
+                                Representation.segmentDuration = maxSegmentDuration;
+                            }
+                            else {
+                                throw new Error("MPD文件格式错误");
+                            }
+                        }
+                    }
+                });
+            });
+        });
+    }
+    /**
+     * @param {Mpd} Mpd
+     * @memberof SegmentTemplateParser
+     * @description 调用 处理 InitializationURL，MediaURL 的函数
+     */
+    parseNodeSegmentTemplate(Mpd) {
+        Mpd["Period_asArray"].forEach(Period => {
+            Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
+                AdaptationSet["Representation_asArray"].forEach(Representation => {
+                    let SegmentTemplate = Representation["SegmentTemplate"];
+                    if (SegmentTemplate) {
+                        this.generateInitializationURL(SegmentTemplate, Representation);
+                        this.generateMediaURL(SegmentTemplate, Representation);
+                    }
+                });
+            });
+        });
+    }
+    /**
+     * @param {SegmentTemplate} SegmentTemplate
+     * @param {Representation} parent
+     * @memberof SegmentTemplateParser
+     * @description 通过正则和替换 得出 initializationURL
+     */
+    generateInitializationURL(SegmentTemplate, parent) {
+        let templateReg = /\$(.+?)\$/ig;
+        let initialization = SegmentTemplate.initialization;
+        let r;
+        let formatArray = new Array();
+        let replaceArray = new Array();
+        if (templateReg.test(initialization)) {
+            templateReg.lastIndex = 0;
+            while (r = templateReg.exec(initialization)) {
+                formatArray.push(r[0]);
+                console.log("ri", r, formatArray);
+                if (r[1] === "Number") {
+                    r[1] = "1";
+                }
+                else if (r[1] === "RepresentationID") {
+                    r[1] = parent.id;
+                }
+                replaceArray.push(r[1]);
+            }
+            let index = 0;
+            while (index < replaceArray.length) {
+                initialization = initialization.replace(formatArray[index], replaceArray[index]);
+                index++;
+            }
+        }
+        parent.initializationURL = initialization;
+    }
+    /**
+     * @param {SegmentTemplate} SegmentTemplate
+     * @param {Representation} parent
+     * @memberof SegmentTemplateParser
+     * @description 通过正则和替换 得出 MediaURL
+     */
+    generateMediaURL(SegmentTemplate, parent) {
+        let templateReg = /\$(.+?)\$/ig;
+        let media = SegmentTemplate.media;
+        let r;
+        let formatArray = new Array();
+        let replaceArray = new Array();
+        parent.mediaURL = new Array();
+        if (templateReg.test(media)) {
+            templateReg.lastIndex = 0;
+            while (r = templateReg.exec(media)) {
+                formatArray.push(r[0]);
+                console.log("r", r, formatArray);
+                if (r[1] === "Number") {
+                    r[1] = "@Number@";
+                }
+                else if (r[1] === "RepresentationID") {
+                    r[1] = parent.id;
+                }
+                replaceArray.push(r[1]);
+            }
+        }
+        let index = 0;
+        while (index < replaceArray.length) {
+            media = media.replace(formatArray[index], replaceArray[index]);
+            index++;
+        }
+        for (let i = 1; i <= Math.ceil(parent.duration / parent.segmentDuration); i++) {
+            let s = media;
+            while (s.includes("@Number@")) {
+                s = s.replace("@Number@", `${i}`);
+            }
+            parent.mediaURL[i] = s;
+        }
+    }
 }
 const factory$2 = FactoryMaker.getSingleFactory(SegmentTemplateParser);
 
+/**
+ * @description 类型守卫函数
+ */
+function checkMediaType(s) {
+    if (!s) {
+        return true;
+    }
+    return (s === "video/mp4" ||
+        s === "audio/mp4" ||
+        s === "text/html" ||
+        s === "text/xml" ||
+        s === "text/plain" ||
+        s === "image/png" ||
+        s === "image/jpeg");
+}
+function checkMpd(s) {
+    if (s.tag === "MPD")
+        return true;
+    return false;
+}
+function checkPeriod(s) {
+    return s.tag === "Period";
+}
+/**
+ * @description 类型守卫函数 ---> 以下都是通过tag进行判断
+ */
+function checkBaseURL(s) {
+    if (s.tag === "BaseURL" && typeof s.url === "string")
+        return true;
+    return false;
+}
+/**
+ * @description 类型守卫函数
+ */
+function checkAdaptationSet(s) {
+    if (s.tag === "AdaptationSet")
+        return true;
+    return false;
+}
+/**
+ * @description 类型守卫函数
+ */
+function checkSegmentTemplate(s) {
+    return s.tag === "SegmentTemplate";
+}
+/**
+ * @description 类型守卫函数
+ */
+function checkRepresentation(s) {
+    return s.tag === "Representation";
+}
+/**
+ * @description 类型守卫函数
+ */
+function checkSegmentList(s) {
+    return s.tag === "SegmentList";
+}
+function checkInitialization(s) {
+    return s.tag === "Initialization";
+}
+function checkSegmentURL(s) {
+    return s.tag === "SegmentURL";
+}
+function checkSegmentBase(s) {
+    return s.tag === "SegmentBase";
+}
+// 检查工具
+let checkUtils = {
+    checkMediaType,
+    checkBaseURL,
+    checkAdaptationSet,
+    checkSegmentTemplate,
+    checkRepresentation,
+    checkSegmentList,
+    checkInitialization,
+    checkSegmentURL,
+    checkSegmentBase
+};
+// 如果是上面的类型的标签返回true，否则返回false
+function findSpecificType(array, type) {
+    array.forEach(item => {
+        if (checkUtils[`check${type}`] && checkUtils[`check${type}`].call(this, item)) {
+            return true;
+        }
+    });
+    return false;
+}
+
 // DashParser 调用 new实例 的 parse方法 会返回 对应string的 节点解析数据
 class DashParser {
+    // private templateReg: RegExp = /\$(.+)?\$/;
     constructor(ctx, ...args) {
         this.config = {};
-        this.templateReg = /\$(.+)?\$/;
         this.config = ctx.context;
         this.setup();
     }
     setup() {
-        this.segmentTemplateParser = factory$2({}).getInstance();
+        this.segmentTemplateParser = factory$2().getInstance();
     }
     string2xml(s) {
         // DOMParser 提供将XML或HTML源代码从字符串解析成DOM文档的能力。
         let parser = new DOMParser();
         return parser.parseFromString(s, "text/xml");
     }
-    // 将string转换为 MpdDocument 或者 Mpd
+    // 解析请求到的xml类型的文本字符串，生成MPD对象,方便后续的解析
     parse(manifest) {
         let xml = this.string2xml(manifest);
         let Mpd;
@@ -819,10 +1110,20 @@ class DashParser {
         else {
             Mpd = this.parseDOMChildren("MpdDocument", xml);
         }
+        console.log("parseDOMChildren后的 Mpd资源", Mpd);
         this.mergeNodeSegementTemplate(Mpd);
+        this.segmentTemplateParser.parse(Mpd);
+        console.log("处理segmentTemplate后的mpd", Mpd);
         return Mpd;
     }
-    // 根据节点类型进行分类 将 Dom 类型的数据 通过递归的转换子节点，最后返回一个result的树状对象
+    // 
+    /**
+     * @param {T} name
+     * @param {Node} node
+     * @return {*}  {ManifestObjectNode[T]}
+     * @memberof DashParser
+     * @description 根据节点类型进行分类 将 Dom 类型的数据 通过递归的转换子节点，最后返回一个result的树状对象,在请求得到的数据上面加上 __children和 _asArray
+     */
     parseDOMChildren(name, node) {
         // 如果node的类型为文档类型 9
         if (node.nodeType === DomNodeTypes.DOCUMENT_NODE) {
@@ -894,7 +1195,11 @@ class DashParser {
         }
     }
     ;
-    // 将 SegementTemplate 放到子节点当中， 在转换好的 树状dom文件中 找到 SegmentTemplate 调用下面的mergeNode把一层层的SegmentTemplate汇总起来
+    /**
+     * @param {Mpd} Mpd MPDdom资源文件
+     * @memberof DashParser
+     * @description 将 SegementTemplate 放到子节点当中， 在转换好的 树状dom文件中 找到 SegmentTemplate 调用下面的mergeNode把一层层的SegmentTemplate汇总起来
+     */
     mergeNodeSegementTemplate(Mpd) {
         let segmentTemplate = null;
         Mpd["Period_asArray"].forEach(Period => {
@@ -904,11 +1209,11 @@ class DashParser {
             }
             Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
                 let template = segmentTemplate;
-                // 这一步把 segmentTemplate 放到 adaptionset里面 
+                // 先判断上面层中有没有segmentTemplate，有就merge
                 if (segmentTemplate) {
                     this.mergeNode(AdaptationSet, segmentTemplate);
                 }
-                // 再把 segmentTemplate 拿出来
+                // 然后处理当前层的 SegmentTemplate， 赋值給segmentTemplate
                 if (AdaptationSet["SegmentTemplate_asArray"]) {
                     segmentTemplate = AdaptationSet["SegmentTemplate_asArray"][0];
                 }
@@ -922,9 +1227,16 @@ class DashParser {
             });
         });
     }
+    /**
+     * @param {FactoryObject} node 目标
+     * @param {FactoryObject} compare 被合并的
+     * @memberof DashParser
+     * @description 用来合并节点的内容 合并规则：有相同tag时 有的属性按 node，没有的属性按compare，node上面没有时，全用compare
+     */
     mergeNode(node, compare) {
         // 合并规则：有相同tag时 有的属性按 node，没有的属性按compare，
         //          node上面没有时，全用compare
+        // 先判断目标上面有没有这个东西， 有的话 原有的属性按原来的，新的属性按compare的
         if (node[compare.tag]) {
             let target = node[`${compare.tag}_asArray`];
             target.forEach(element => {
@@ -936,54 +1248,73 @@ class DashParser {
             });
         }
         else {
+            // 如果目标上没有的话，就直接赋值过去
             node[compare.tag] = compare;
             node.__children = node.__children || [];
             node.__children.push(compare);
             node[`${compare.tag}__asArray`] = [compare];
         }
     }
-    // 将进过merge后的SegementTemplate，转换为真是的路由地址
-    parseNodeSegmentTemplate(Mpd) {
-        Mpd["Period_asArray"].forEach(Period => {
-            Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
-                AdaptationSet["Representation_asArray"].forEach(Representation => {
-                    let SegmentTemplate = Representation["SegmentTemplate"];
-                    this.generateInitializationURL(SegmentTemplate, Representation);
-                    this.generateMediaURL(SegmentTemplate, Representation);
-                });
+    // 获取播放的总时间
+    static getTotalDuration(Mpd) {
+        let totalDuration = 0;
+        let MpdDuration = NaN;
+        if (Mpd.mediaPresentationDuration) {
+            MpdDuration = switchToSeconds(parseDuration(Mpd.mediaPresentationDuration));
+            console.log("MpdDuration", MpdDuration);
+        }
+        // MPD文件的总时间要么是由Mpd标签上的availabilityStartTime指定，要么是每一个Period上的duration之和
+        if (isNaN(MpdDuration)) {
+            Mpd.children.forEach(Period => {
+                if (Period.duration) {
+                    totalDuration += switchToSeconds(parseDuration(Period.duration));
+                }
+                else {
+                    throw new Error("MPD文件格式错误");
+                }
             });
-        });
+        }
+        else {
+            totalDuration = MpdDuration;
+        }
+        return totalDuration;
     }
-    // 通过匹配替换的方式 在 上层注入initializationURL
-    generateInitializationURL(SegmentTemplate, parent) {
-        let initialization = SegmentTemplate.initialization;
-        SegmentTemplate.media;
-        let r;
-        let formatArray = new Array();
-        let replaceArray = new Array();
-        if (this.templateReg.test(initialization)) {
-            while (r = this.templateReg.exec(initialization)) {
-                formatArray.push(r[0]);
-                if (r[1] === "Number") {
-                    r[1] = "1";
-                }
-                else if (r[1] === "RepresentationID") {
-                    r[1] = parent.id;
-                }
-                replaceArray.push(r[1]);
+    /**
+     * @static
+     * @param {(Mpd | Period | AdaptationSet)} Mpd
+     * @memberof DashParser
+     * @description 给每一个Representation对象上挂载duration属性
+     */
+    static setDurationForRepresentation(Mpd) {
+        if (checkMpd(Mpd)) {
+            //1. 如果只有一个Period
+            if (Mpd["Period_asArray"].length === 1) {
+                let totalDuration = this.getTotalDuration(Mpd);
+                Mpd["Period_asArray"].forEach(Period => {
+                    Period.duration = Period.duration || totalDuration;
+                    Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
+                        AdaptationSet.duration = totalDuration;
+                        AdaptationSet["Representation_asArray"].forEach(Representation => {
+                            Representation.duration = totalDuration;
+                        });
+                    });
+                });
             }
-            let index = 0;
-            while (index < replaceArray.length) {
-                initialization.replace(formatArray[index], replaceArray[index]);
-                index++;
+            else {
+                Mpd["Period_asArray"].forEach(Period => {
+                    if (!Period.duration)
+                        throw new Error("MPD文件格式错误");
+                    let duration = Period.duration;
+                    Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
+                        AdaptationSet.duration = duration;
+                        AdaptationSet["Representation_asArray"].forEach(Representation => {
+                            Representation.duration = duration;
+                        });
+                    });
+                });
             }
         }
-        parent.initializationURL = initialization;
-    }
-    generateMediaURL(SegmentTemplate, parent) {
-        SegmentTemplate.media;
-        new Array();
-        new Array();
+        else if (checkPeriod(Mpd)) ;
     }
 }
 const DashParserFactory = FactoryMaker.getSingleFactory(DashParser);
@@ -1080,8 +1411,8 @@ class MediaPlayer {
     }
     //MPD文件请求成功获得对应的data数据
     onManifestLoaded(data) {
-        let manifest = this.dashParser.parse(data);
-        console.log(manifest);
+        console.log("请求得到的manifest数据", data);
+        let manifest = this.dashParser.parse(data); // 在这里已经将 initURL和 MediaUrl弄来了
         this.baseURLPath = this.baseURLParser.parseManifestForBaseURL(manifest);
         console.log(this.baseURLPath);
     }
@@ -1180,156 +1511,6 @@ class Player extends BaseEvent {
     }
 }
 
-//  格式化播放时间工具
-function addZero(num) {
-    return num > 9 ? "" + num : "0" + num;
-}
-function formatTime(seconds) {
-    seconds = Math.floor(seconds);
-    let minute = Math.floor(seconds / 60);
-    let second = seconds % 60;
-    return addZero(minute) + ":" + addZero(second);
-}
-// 将 Time 类型的时间转换为秒
-function switchToSeconds(time) {
-    if (!time) {
-        return null;
-    }
-    let sum = 0;
-    if (time.hours)
-        sum += time.hours * 3600;
-    if (time.minutes)
-        sum += time.minutes * 60;
-    if (time.seconds)
-        sum += time.seconds;
-    return sum;
-}
-// 解析MPD文件的时间字符串
-// Period 的 start 和 duration 属性使用了 NPT 格式表示该期间的开始时间和持续时间，即 PT0S 和 PT60S
-function parseDuration(pt) {
-    // NPT 格式的字符串以 PT 开头，后面跟着一个时间段的表示，例如 PT60S 表示 60 秒的时间段。时间段可以包含以下几个部分：
-    // H: 表示小时。
-    // M: 表示分钟。
-    // S: 表示秒。
-    // F: 表示帧数。
-    // T: 表示时间段的开始时间。
-    // if (!pt) {
-    //     return null
-    // }
-    let hours = 0, minutes = 0, seconds = 0;
-    for (let i = pt.length - 1; i >= 0; i--) {
-        if (pt[i] === "S") {
-            let j = i;
-            while (pt[i] !== "M" && pt[i] !== "H" && pt[i] !== "T") {
-                i--;
-            }
-            i += 1;
-            seconds = parseInt(pt.slice(i, j));
-        }
-        else if (pt[i] === "M") {
-            let j = i;
-            while (pt[i] !== "H" && pt[i] !== "T") {
-                i--;
-            }
-            i += 1;
-            minutes = parseInt(pt.slice(i, j));
-        }
-        else if (pt[i] === "H") {
-            let j = i;
-            while (pt[i] !== "T") {
-                i--;
-            }
-            i += 1;
-            hours = parseInt(pt.slice(i, j));
-        }
-    }
-    return {
-        hours,
-        minutes,
-        seconds,
-    };
-}
-
-/**
- * @description 类型守卫函数
- */
-function checkMediaType(s) {
-    if (!s) {
-        return true;
-    }
-    return (s === "video/mp4" ||
-        s === "audio/mp4" ||
-        s === "text/html" ||
-        s === "text/xml" ||
-        s === "text/plain" ||
-        s === "image/png" ||
-        s === "image/jpeg");
-}
-/**
- * @description 类型守卫函数 ---> 以下都是通过tag进行判断
- */
-function checkBaseURL(s) {
-    if (s.tag === "BaseURL" && typeof s.url === "string")
-        return true;
-    return false;
-}
-/**
- * @description 类型守卫函数
- */
-function checkAdaptationSet(s) {
-    if (s.tag === "AdaptationSet")
-        return true;
-    return false;
-}
-/**
- * @description 类型守卫函数
- */
-function checkSegmentTemplate(s) {
-    return s.tag === "SegmentTemplate";
-}
-/**
- * @description 类型守卫函数
- */
-function checkRepresentation(s) {
-    return s.tag === "Representation";
-}
-/**
- * @description 类型守卫函数
- */
-function checkSegmentList(s) {
-    return s.tag === "SegmentList";
-}
-function checkInitialization(s) {
-    return s.tag === "Initialization";
-}
-function checkSegmentURL(s) {
-    return s.tag === "SegmentURL";
-}
-function checkSegmentBase(s) {
-    return s.tag === "SegmentBase";
-}
-// 检查工具
-let checkUtils = {
-    checkMediaType,
-    checkBaseURL,
-    checkAdaptationSet,
-    checkSegmentTemplate,
-    checkRepresentation,
-    checkSegmentList,
-    checkInitialization,
-    checkSegmentURL,
-    checkSegmentBase
-};
-// 如果是上面的类型的标签返回true，否则返回false
-function findSpecificType(array, type) {
-    array.forEach(item => {
-        if (checkUtils[`check${type}`] && checkUtils[`check${type}`].call(this, item)) {
-            return true;
-        }
-    });
-    return false;
-}
-
 function string2boolean(s) {
     if (s === "true") {
         return true;
@@ -1356,4 +1537,4 @@ function string2number(s) {
 // export * from "./axios/Axios"
 console.log('hello');
 
-export { $warn, BaseEvent, Controller, ErrorMask, LoadingMask, Player, Progress, ToolBar, addZero, checkAdaptationSet, checkBaseURL, checkInitialization, checkMediaType, checkRepresentation, checkSegmentBase, checkSegmentList, checkSegmentTemplate, checkSegmentURL, checkUtils, findSpecificType, formatTime, icon, parseDuration, string2boolean, string2number, styles, switchToSeconds };
+export { $warn, BaseEvent, Controller, ErrorMask, LoadingMask, Player, Progress, ToolBar, addZero, checkAdaptationSet, checkBaseURL, checkInitialization, checkMediaType, checkMpd, checkPeriod, checkRepresentation, checkSegmentBase, checkSegmentList, checkSegmentTemplate, checkSegmentURL, checkUtils, findSpecificType, formatTime, icon, parseDuration, string2boolean, string2number, styles, switchToSeconds };

@@ -7,7 +7,9 @@ import {
     SegmentBase,
     SegmentList,
     SegmentTemplate,
-    SegmentURL
+    SegmentURL,
+    Mpd,
+    Period
 } from "../types/dash/MpdFile";
 
 /**
@@ -26,6 +28,15 @@ export function checkMediaType(s: any): s is MediaType {
         s === "image/png" ||
         s === "image/jpeg"
     )
+}
+
+export function checkMpd(s: any): s is Mpd {
+    if (s.tag === "MPD") return true;
+    return false;
+}
+
+export function checkPeriod(s: any): s is Period {
+    return s.tag === "Period";
 }
 
 /**
@@ -72,6 +83,7 @@ export function checkSegmentURL(s: any): s is SegmentURL {
 export function checkSegmentBase(s: any): s is SegmentBase {
     return s.tag === "SegmentBase";
 }
+
 
 // 检查工具
 export let checkUtils = {

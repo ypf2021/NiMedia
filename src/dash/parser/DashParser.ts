@@ -1,15 +1,16 @@
 import { DomNodeTypes, ManifestObjectNode } from "../../types/dash/DomNodeTypes";
 import { FactoryObject } from "../../types/dash/Factory";
 import FactoryMaker from "../FactoryMaker";
-import { SegmentTemplate, Representation } from "../../types/dash/MpdFile";
+import { Mpd, SegmentTemplate, AdaptationSet, Period } from "../../types/dash/MpdFile";
 import SegmentTemplateParserFactory, { SegmentTemplateParser } from "./SegmentTemplateParser";
-
+import { parseDuration, switchToSeconds } from "../../utils/format";
+import { checkMpd, checkPeriod, checkUtils } from "../../utils/typeCheck";
 
 // DashParser 调用 new实例 的 parse方法 会返回 对应string的 节点解析数据
 class DashParser {
     private config: FactoryObject = {};
     private segmentTemplateParser: SegmentTemplateParser;
-    private templateReg: RegExp = /\$(.+)?\$/;
+    // private templateReg: RegExp = /\$(.+)?\$/;
 
     constructor(ctx: FactoryObject, ...args) {
         this.config = ctx.context;
@@ -17,7 +18,7 @@ class DashParser {
     }
 
     setup() {
-        this.segmentTemplateParser = SegmentTemplateParserFactory({}).getInstance()
+        this.segmentTemplateParser = SegmentTemplateParserFactory().getInstance()
     }
 
     string2xml(s: string): Document {
@@ -26,7 +27,7 @@ class DashParser {
         return parser.parseFromString(s, "text/xml");
     }
 
-    // 将string转换为 MpdDocument 或者 Mpd
+    // 解析请求到的xml类型的文本字符串，生成MPD对象,方便后续的解析
     parse(manifest: string): ManifestObjectNode["MpdDocument"] | ManifestObjectNode["Mpd"] {
         let xml = this.string2xml(manifest);
 
@@ -37,12 +38,24 @@ class DashParser {
         } else {
             Mpd = this.parseDOMChildren("MpdDocument", xml);
         }
+        console.log("parseDOMChildren后的 Mpd资源", Mpd)
 
         this.mergeNodeSegementTemplate(Mpd);
+        this.segmentTemplateParser.parse(Mpd);
+        console.log("处理segmentTemplate后的mpd", Mpd);
+
         return Mpd
     }
 
-    // 根据节点类型进行分类 将 Dom 类型的数据 通过递归的转换子节点，最后返回一个result的树状对象
+    // 
+
+    /**
+     * @param {T} name
+     * @param {Node} node
+     * @return {*}  {ManifestObjectNode[T]}
+     * @memberof DashParser
+     * @description 根据节点类型进行分类 将 Dom 类型的数据 通过递归的转换子节点，最后返回一个result的树状对象,在请求得到的数据上面加上 __children和 _asArray
+     */
     parseDOMChildren<T extends string>(name: T, node: Node): ManifestObjectNode[T] {
         // 如果node的类型为文档类型 9
         if (node.nodeType === DomNodeTypes.DOCUMENT_NODE) {
@@ -118,8 +131,13 @@ class DashParser {
         }
     };
 
-    // 将 SegementTemplate 放到子节点当中， 在转换好的 树状dom文件中 找到 SegmentTemplate 调用下面的mergeNode把一层层的SegmentTemplate汇总起来
-    mergeNodeSegementTemplate(Mpd: FactoryObject) {
+
+    /**
+     * @param {Mpd} Mpd MPDdom资源文件
+     * @memberof DashParser
+     * @description 将 SegementTemplate 放到子节点当中， 在转换好的 树状dom文件中 找到 SegmentTemplate 调用下面的mergeNode把一层层的SegmentTemplate汇总起来
+     */
+    mergeNodeSegementTemplate(Mpd: Mpd) {
         let segmentTemplate: SegmentTemplate | null = null;
         Mpd["Period_asArray"].forEach(Period => {
             if (Period["SegmentTemplate_asArray"]) {
@@ -128,11 +146,11 @@ class DashParser {
             }
             Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
                 let template = segmentTemplate;
-                // 这一步把 segmentTemplate 放到 adaptionset里面 
+                // 先判断上面层中有没有segmentTemplate，有就merge
                 if (segmentTemplate) {
                     this.mergeNode(AdaptationSet, segmentTemplate);
                 }
-                // 再把 segmentTemplate 拿出来
+                // 然后处理当前层的 SegmentTemplate， 赋值給segmentTemplate
                 if (AdaptationSet["SegmentTemplate_asArray"]) {
                     segmentTemplate = AdaptationSet["SegmentTemplate_asArray"][0];
                 }
@@ -148,10 +166,17 @@ class DashParser {
         });
     }
 
+    /**
+     * @param {FactoryObject} node 目标
+     * @param {FactoryObject} compare 被合并的
+     * @memberof DashParser
+     * @description 用来合并节点的内容 合并规则：有相同tag时 有的属性按 node，没有的属性按compare，node上面没有时，全用compare
+     */
     mergeNode(node: FactoryObject, compare: FactoryObject) {
         // 合并规则：有相同tag时 有的属性按 node，没有的属性按compare，
         //          node上面没有时，全用compare
 
+        // 先判断目标上面有没有这个东西， 有的话 原有的属性按原来的，新的属性按compare的
         if (node[compare.tag]) {
             let target = node[`${compare.tag}_asArray`];
             target.forEach(element => {
@@ -162,6 +187,7 @@ class DashParser {
                 }
             });
         } else {
+            // 如果目标上没有的话，就直接赋值过去
             node[compare.tag] = compare;
             node.__children = node.__children || [];
             node.__children.push(compare);
@@ -169,51 +195,65 @@ class DashParser {
         }
     }
 
-    // 将进过merge后的SegementTemplate，转换为真是的路由地址
-    parseNodeSegmentTemplate(Mpd: FactoryObject) {
-        Mpd["Period_asArray"].forEach(Period => {
-            Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
-                AdaptationSet["Representation_asArray"].forEach(Representation => {
-                    let SegmentTemplate = Representation["SegmentTemplate"];
-                    this.generateInitializationURL(SegmentTemplate, Representation);
-                    this.generateMediaURL(SegmentTemplate, Representation);
-                })
-            })
-        });
-    }
-
-    // 通过匹配替换的方式 在 上层注入initializationURL
-    generateInitializationURL(SegmentTemplate: SegmentTemplate, parent: Representation) {
-        let initialization = SegmentTemplate.initialization;
-        let media = SegmentTemplate.media;
-        let r;
-        let formatArray = new Array<string>();
-        let replaceArray = new Array<string>();
-        if (this.templateReg.test(initialization)) {
-            while (r = this.templateReg.exec(initialization)) {
-                formatArray.push(r[0]);
-                if (r[1] === "Number") {
-                    r[1] = "1";
-                } else if (r[1] === "RepresentationID") {
-                    r[1] = parent.id!;
-                }
-                replaceArray.push(r[1]);
-            }
-
-            let index = 0;
-            while (index < replaceArray.length) {
-                initialization.replace(formatArray[index], replaceArray[index]);
-                index++;
-            }
+    // 获取播放的总时间
+    static getTotalDuration(Mpd: Mpd): number | never {
+        let totalDuration = 0;
+        let MpdDuration = NaN;
+        if (Mpd.mediaPresentationDuration) {
+            MpdDuration = switchToSeconds(parseDuration(Mpd.mediaPresentationDuration));
+            console.log("MpdDuration", MpdDuration)
         }
-        parent.initializationURL = initialization;
+        // MPD文件的总时间要么是由Mpd标签上的availabilityStartTime指定，要么是每一个Period上的duration之和
+        if (isNaN(MpdDuration)) {
+            Mpd.children.forEach(Period => {
+                if (Period.duration) {
+                    totalDuration += switchToSeconds(parseDuration(Period.duration));
+                } else {
+                    throw new Error("MPD文件格式错误")
+                }
+            })
+        } else {
+            totalDuration = MpdDuration;
+        }
+        return totalDuration;
     }
 
-    generateMediaURL(SegmentTemplate: SegmentTemplate, parent: Representation) {
-        let meida = SegmentTemplate.media;
-        let r;
-        let formatArray = new Array<string>();
-        let replaceArray = new Array<string>();
+    /**
+     * @static
+     * @param {(Mpd | Period | AdaptationSet)} Mpd
+     * @memberof DashParser
+     * @description 给每一个Representation对象上挂载duration属性
+     */
+    static setDurationForRepresentation(Mpd: Mpd | Period | AdaptationSet) {
+
+        if (checkMpd(Mpd)) {
+            //1. 如果只有一个Period
+            if (Mpd["Period_asArray"].length === 1) {
+                let totalDuration = this.getTotalDuration(Mpd);
+                Mpd["Period_asArray"].forEach(Period => {
+                    Period.duration = Period.duration || totalDuration;
+                    Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
+                        AdaptationSet.duration = totalDuration;
+                        AdaptationSet["Representation_asArray"].forEach(Representation => {
+                            Representation.duration = totalDuration;
+                        })
+                    })
+                })
+            } else {
+                Mpd["Period_asArray"].forEach(Period => {
+                    if (!Period.duration) throw new Error("MPD文件格式错误");
+                    let duration = Period.duration;
+                    Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
+                        AdaptationSet.duration = duration;
+                        AdaptationSet["Representation_asArray"].forEach(Representation => {
+                            Representation.duration = duration;
+                        })
+                    })
+                })
+            }
+        } else if (checkPeriod(Mpd)) {
+            //todo
+        }
     }
 
 }

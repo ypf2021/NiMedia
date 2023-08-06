@@ -76,6 +76,8 @@ export type SegmentTemplate = {
     tag: "SegmentTemplate";
     initialization?: string;
     media?: string;
+    timescale?: number;
+    duration?: number;
     [props: string]: any;
 };
 /**

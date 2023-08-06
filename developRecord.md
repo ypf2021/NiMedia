@@ -40,6 +40,9 @@
 这个模式的好处是让各个模块之间的功能都通过class的方式来分割，各司其职，
 
 #### 8/6
->代码重点部分
+>今日完成了以下功能
 - eventBusFactory部分 ，请求部分的事件逻辑完善
 - mediaplayer 初始化时注册监听on，调用attachSource发起资源请求，在urlloader 请求完成时，触发tigger，调用监听的函数， 对请求到的资源进行 parse处理
+- 完善Mpd文件中 有 Segmenttemplate 时对时间的处理。 以及对应文件的 media 和init 资源的处理。
+
+- 阅读代码，理清思路

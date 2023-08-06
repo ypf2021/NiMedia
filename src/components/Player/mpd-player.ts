@@ -1,4 +1,5 @@
 // 以下注释部分全部弃用
+// 下面注释处理资源文件都很蠢
 // import { parseMpd } from "../../dash/parseMpd";
 // import { Axios } from "../../axios/Axios";
 // import { Player } from "./player";
