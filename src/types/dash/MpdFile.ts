@@ -96,8 +96,9 @@ export type AdaptationSet = {
 // 片段模板 组成下载 Representation 的URL 模板
 export type SegmentTemplate = {
     tag: "SegmentTemplate";
-    initialization: string | null;
-    media: string | null; // 指定用来生成Segment列表的模板,可以包含的通配符有$RepresentaonID$，$Bandwidth$，$Number$, $Time$
+    initialization?: string;
+    media?: string; // 指定用来生成Segment列表的模板,可以包含的通配符有$RepresentaonID$，$Bandwidth$，$Number$, $Time$
+    [props: string]: any;
 }
 
 
@@ -108,14 +109,15 @@ export type SegmentTemplate = {
 // 码流 -> 媒体文件描述
 export type Representation = {
     tag: "Representation";
-    bandWidth: number; // bandwidth=3200000 需要带宽 3.2Mbps
-    codecs: string; // 表示该媒体流使用的编码格式
-    id: string;
-    width: number;
-    height: number; // width * height --> 视频的分辨率
-    mimeType: MediaType | null;
-    audioSamplingRate: string | null;
+    bandWidth?: number; // bandwidth=3200000 需要带宽 3.2Mbps
+    codecs?: string; // 表示该媒体流使用的编码格式
+    id?: string;
+    width?: number;
+    height?: number; // width * height --> 视频的分辨率
+    mimeType?: MediaType | null;
+    audioSamplingRate?: string | null;
     children?: Array<BaseURL | SegmentBase | SegmentList>;
+    [props: string]: any;
 }
 
 // 每个Representation由一个或者多个segment组成，每个segment由一个对应的URL指定，
