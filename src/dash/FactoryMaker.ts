@@ -32,11 +32,12 @@ const FactoryMaker = (function () {
             return factory
         }
 
-        // 单一实例
+        // 单一实例 单例模式
         getSingleFactory<T>(classConstructor: BaseConstructor<T>): FactoryFunction<T> {
             let factory = this.__single_factoryMap[classConstructor.name];
             let ctx = this;
             if (!factory) {
+                // 调用 getSingleFactory() 时传入的 context 会传递到new时的第一个参数的 context中
                 factory = function (context) {
                     if (!context) context = {}
                     return {
