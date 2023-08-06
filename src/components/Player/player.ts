@@ -1,6 +1,4 @@
 import { PlayerOptions, $warn, styles, ToolBar, LoadingMask, ErrorMask, BaseEvent } from "../../index";;
-import { parseMpd } from "../../dash/parseMpd"
-import { Axios } from "../../axios/Axios";
 import { getFileExtension } from "../../utils/getFileExtension";
 import { Mp4Player } from "./mp4-player";
 import { MpdPlayer } from "./mpd-player";
