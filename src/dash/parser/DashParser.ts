@@ -10,7 +10,6 @@ class DashParser {
         this.config = ctx.context;
     }
 
-
     string2xml(s: string): Document {
         // DOMParser 提供将XML或HTML源代码从字符串解析成DOM文档的能力。
         let parser = new DOMParser();
@@ -21,8 +20,13 @@ class DashParser {
     parse(manifest: string): ManifestObjectNode["MpdDocument"] | ManifestObjectNode["Mpd"] {
         let xml = this.string2xml(manifest);
 
-        // return this.parseDOMChildren("Document", xml)
-        let Mpd = this.parseDOMChildren("MpdDocument", xml);
+        let Mpd;
+        if (this.config.override) {
+            Mpd = this.parseDOMChildren("Mpd", xml);
+        } else {
+            Mpd = this.parseDOMChildren("MpdDocument", xml);
+        }
+
         this.mergeNodeSegementTemplate(Mpd);
         return Mpd
     }
@@ -56,7 +60,7 @@ class DashParser {
             }
             return result;
         } else if (node.nodeType === DomNodeTypes.ELEMENT_NODE) {
-            let result = {
+            let result: FactoryObject = {
                 tag: node.nodeName,
                 __children: [],
             };
@@ -82,6 +86,11 @@ class DashParser {
                     result[key + "_asArray"] = Array.isArray(result[key]) ? [...result[key]] : [result[key]]
                 }
             }
+
+            result["#text_asArray"].forEach(text => {
+                result.__text = result.__text || "";
+                result.__text += `${text.text}/n`
+            })
 
             // 2.解析node上挂载的属性
             for (let prop of (node as Element).attributes) {

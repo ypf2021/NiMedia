@@ -57,13 +57,13 @@ export type MpdDocument = {
 
 export type Mpd = {
     tag: "MPD";
-    type: "static" | "dynamic"; // 点播对应static  直播对应dynamic
-    children: Array<Period>; // Period代表某一个时间段
-    availabilityStartTime: string | null; // 如果是直播流的话,则必须提供,代表MPD中所有Seg从该时间开始可以request了 例如 019-05-22T22:16:57Z
-    mediaPresentationDuration: string | null; // 表示媒体文件的总时长
-    minBufferTime: string | null; // 至少需要缓冲的时间
-    minimumUpdatePeriod: string | null; // 至少每隔这么长时间,MPD就有可能更新一次,只用于直播流
-    maxSegmentDuration: string | null;
+    type?: "static" | "dynamic"; // 点播对应static  直播对应dynamic
+    children?: Array<Period>; // Period代表某一个时间段
+    availabilityStartTime?: string | null; // 如果是直播流的话,则必须提供,代表MPD中所有Seg从该时间开始可以request了 例如 019-05-22T22:16:57Z
+    mediaPresentationDuration?: string | null; // 表示媒体文件的总时长
+    minBufferTime?: string | null; // 至少需要缓冲的时间
+    minimumUpdatePeriod?: string | null; // 至少每隔这么长时间,MPD就有可能更新一次,只用于直播流
+    maxSegmentDuration?: string | null;
 };
 
 // Period代表某一个时间段
