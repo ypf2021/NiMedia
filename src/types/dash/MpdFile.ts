@@ -50,6 +50,10 @@ export type SegmentRequest = {
     url: string;
 }
 
+export type MpdDocument = {
+    tag: "Document";
+    root: Mpd;
+};
 
 export type Mpd = {
     tag: "MPD";

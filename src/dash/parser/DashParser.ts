@@ -1,6 +1,7 @@
 import { DomNodeTypes, ManifestObjectNode } from "../../types/dash/DomNodeTypes";
 import { FactoryObject } from "../../types/dash/Factory";
 import FactoryMaker from "../FactoryMaker";
+import { SegmentTemplate } from "../../types/dash/MpdFile";
 
 // DashParser 调用 new实例 的 parse方法 会返回 对应string的 节点解析数据
 class DashParser {
@@ -17,10 +18,13 @@ class DashParser {
     }
 
     // 将string转换为 dom 或者 mpd
-    parse(manifest: string): ManifestObjectNode["Document"] | ManifestObjectNode["Mpd"] {
+    parse(manifest: string): ManifestObjectNode["MpdDocument"] | ManifestObjectNode["Mpd"] {
         let xml = this.string2xml(manifest);
 
-        return this.parseDOMChildren("Document", xml)
+        // return this.parseDOMChildren("Document", xml)
+        let Mpd = this.parseDOMChildren("MpdDocument", xml);
+        this.mergeNodeSegementTemplate(Mpd);
+        return Mpd
     }
 
     parseDOMChildren<T extends string>(name: T, node: Node): ManifestObjectNode[T] {
@@ -34,7 +38,7 @@ class DashParser {
             for (let index in node.childNodes) {
                 // 文档类型的节点一定只有一个子节点
                 if (node.childNodes[index].nodeType === DomNodeTypes.ELEMENT_NODE) {
-                    // 忽略更节电
+                    // 忽略更节电  如果在配置指定需要忽略根节点的话，也就是忽略MpdDocument节点
                     if (!this.config.ignoreRoot) {
                         // 递归传递
                         result.__children[index] = this.parseDOMChildren(
@@ -90,7 +94,55 @@ class DashParser {
                 text: node.nodeValue
             }
         }
+    };
+
+    // 将 SegementTemplate 放到子节点当中
+    mergeNodeSegementTemplate(Mpd: FactoryObject) {
+        let segmentTemplate: SegmentTemplate | null = null;
+        Mpd["Period_asArray"].forEach(Period => {
+            if (Period["SegmentTemplate_asArray"]) {
+                segmentTemplate = Period["SegmentTemplate_asArray"][0];
+            }
+            Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
+                let template = segmentTemplate;
+                // 这一步把 segmentTemplate 放到 adaptionset里面 
+                if (segmentTemplate) {
+                    this.mergeNode(AdaptationSet, segmentTemplate);
+                }
+                // 再把 segmentTemplate 拿出来
+                if (AdaptationSet["SegmentTemplate_asArray"]) {
+                    segmentTemplate = AdaptationSet["SegmentTemplate_asArray"][0];
+                }
+
+                // 这一步再把 segmentTemplate 放到 Representation上面
+                AdaptationSet["Representation_asArray"].forEach(Representation => {
+                    if (segmentTemplate) {
+                        this.mergeNode(Representation, segmentTemplate);
+                    }
+                })
+                segmentTemplate = template
+            });
+        });
     }
+
+    mergeNode(node: FactoryObject, compare: FactoryObject) {
+        if (node[compare.tag]) {
+            let target = node[`${compare.tag}_asArray`];
+            target.forEach(element => {
+                for (let key in compare) {
+                    if (!element.hasOwnProperty(key)) {
+                        element[key] = compare[key];
+                    }
+                }
+            });
+        } else {
+            node[compare.tag] = compare;
+            node.__children = node.__children || [];
+            node.__children.push(compare);
+            node[`${compare.tag}__asArray`] = [compare];
+        }
+    }
+
 }
 
 const DashParserFactory = FactoryMaker.getSingleFactory(DashParser);

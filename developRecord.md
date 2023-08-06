@@ -38,3 +38,8 @@
 >代码重点部分
 - HTTP URL XHR MediaPlayer 等部分的工厂函数实例
 这个模式的好处是让各个模块之间的功能都通过class的方式来分割，各司其职，
+
+#### 8/6
+>代码重点部分
+- eventBusFactory部分 ，请求部分的事件逻辑完善
+- mediaplayer 初始化时注册监听on，调用attachSource发起资源请求，在urlloader 请求完成时，触发tigger，调用监听的函数， 对请求到的资源进行 parse处理
