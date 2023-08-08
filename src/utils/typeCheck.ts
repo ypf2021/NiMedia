@@ -86,24 +86,24 @@ export function checkSegmentBase(s: any): s is SegmentBase {
 
 
 // 检查工具
-export let checkUtils = {
-    checkMediaType,
-    checkBaseURL,
-    checkAdaptationSet,
-    checkSegmentTemplate,
-    checkRepresentation,
-    checkSegmentList,
-    checkInitialization,
-    checkSegmentURL,
-    checkSegmentBase
-}
+// export let checkUtils = {
+//     checkMediaType,
+//     checkBaseURL,
+//     checkAdaptationSet,
+//     checkSegmentTemplate,
+//     checkRepresentation,
+//     checkSegmentList,
+//     checkInitialization,
+//     checkSegmentURL,
+//     checkSegmentBase
+// }
 
-// 如果是上面的类型的标签返回true，否则返回false
-export function findSpecificType(array: Array<unknown>, type: string): boolean {
-    array.forEach(item => {
-        if (checkUtils[`check${type}`] && checkUtils[`check${type}`].call(this, item)) {
-            return true
-        }
-    })
-    return false
-}
+// // 如果是上面的类型的标签返回true，否则返回false
+// export function findSpecificType(array: Array<unknown>, type: string): boolean {
+//     array.forEach(item => {
+//         if (checkUtils[`check${type}`] && checkUtils[`check${type}`].call(this, item)) {
+//             return true
+//         }
+//     })
+//     return false
+// }

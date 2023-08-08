@@ -6,9 +6,9 @@ import EventBusFactory, { EventBus } from "./event/EventBus";
 import { EventConstants } from "./event/EventConstants";
 import { Mpd } from "../types/dash/MpdFile";
 import BaseURLParserFactory, { BaseURLParser, URLNode } from "./parser/BaseURLParser";
-
+import StreamControllerFactory, { StreamController } from "./stream/StreamController";
 /**
- * @description 整个dash处理流程的入口类MediaPlayer
+ * @description 整个dash处理流程的入口类MediaPlayer, 类似于项目的中转中心，用于接收任务并且将任务分配给不同的解析器去完成
  */
 
 class MediaPlayer {
@@ -16,8 +16,8 @@ class MediaPlayer {
     private urlLoader: URLLoader;
     private eventBus: EventBus;
     private dashParser: DashParser
-    private baseURLParser: BaseURLParser;
-    private baseURLPath: URLNode;
+
+    private streamController: StreamController;
 
     constructor(ctx: FactoryObject, ...args: any[]) {
         this.config = ctx.context;
@@ -31,7 +31,8 @@ class MediaPlayer {
         this.eventBus = EventBusFactory().getInstance();
         // ignoreRoot -> 忽略Document节点，从MPD开始作为根节点
         this.dashParser = DashParserFactory({ ignoreRoot: true }).getInstance()
-        this.baseURLParser = BaseURLParserFactory().getInstance()
+        this.streamController = StreamControllerFactory().create();
+
     }
 
     initializeEvent() {
@@ -42,8 +43,10 @@ class MediaPlayer {
     onManifestLoaded(data) {
         console.log("请求得到的manifest数据", data)
         let manifest = this.dashParser.parse(data) // 在这里已经将 initURL和 MediaUrl弄来了
-        this.baseURLPath = this.baseURLParser.parseManifestForBaseURL(manifest as Mpd);
-        console.log(this.baseURLPath);
+        // this.baseURLPath = this.baseURLParser.parseManifestForBaseURL(manifest as Mpd);
+        // console.log(this.baseURLPath);
+        let res = this.streamController.generateSegmentRequestStruct(manifest as Mpd);
+        console.log(res);
     }
 
     /**
@@ -51,7 +54,7 @@ class MediaPlayer {
      * @param url 
      */
     public attachSource(url: string) {
-        this.urlLoader.load({ url, responseType: 'text' });
+        this.urlLoader.load({ url, responseType: 'text' }, "Manifest");
     }
 }
 

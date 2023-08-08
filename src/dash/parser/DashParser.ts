@@ -4,7 +4,7 @@ import FactoryMaker from "../FactoryMaker";
 import { Mpd, SegmentTemplate, AdaptationSet, Period } from "../../types/dash/MpdFile";
 import SegmentTemplateParserFactory, { SegmentTemplateParser } from "./SegmentTemplateParser";
 import { parseDuration, switchToSeconds } from "../../utils/format";
-import { checkMpd, checkPeriod, checkUtils } from "../../utils/typeCheck";
+import { checkMpd, checkPeriod } from "../../utils/typeCheck";
 
 // DashParser 调用 new实例 的 parse方法 会返回 对应string的 节点解析数据
 class DashParser {
@@ -41,6 +41,7 @@ class DashParser {
         console.log("parseDOMChildren后的 Mpd资源", Mpd)
 
         this.mergeNodeSegementTemplate(Mpd);
+        this.setResolvePowerForRepresentation(Mpd);
         this.segmentTemplateParser.parse(Mpd);
         console.log("处理segmentTemplate后的mpd", Mpd);
 
@@ -254,6 +255,23 @@ class DashParser {
         } else if (checkPeriod(Mpd)) {
             //todo
         }
+    }
+
+    /**
+     * @description 在 Representation_asArray 上添加分辨率 resolvePower
+     * @param {Mpd} Mpd
+     * @memberof DashParser
+     */
+    setResolvePowerForRepresentation(Mpd: Mpd) {
+        Mpd["Period_asArray"].forEach(Period => {
+            Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
+                AdaptationSet["Representation_asArray"].forEach(Representation => {
+                    if (Representation.width && Representation.height) {
+                        Representation.resolvePower = `${Representation.width}*${Representation.height}`;
+                    }
+                })
+            })
+        })
     }
 
 }

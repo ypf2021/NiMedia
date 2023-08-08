@@ -646,7 +646,7 @@
         setup() {
         }
         // 调用这个方法发起 xml请求
-        loadManifest(config) {
+        load(config) {
             // 传入一个 config， config包括请求的结果处理函数，以及请求request参数，间接的传给xhr，增加代码的灵活度
             let request = config.request;
             let xhr = new XMLHttpRequest();
@@ -751,7 +751,7 @@
         }
         // 这个函数调用 xhrLoader.loadManifest 发起请求
         _loadManifest(config) {
-            this.xhrLoader.loadManifest(config);
+            this.xhrLoader.load(config);
         }
         setup() {
             // 拿到的instance就是 xhrloader 的实例
@@ -759,22 +759,24 @@
             this.eventBus = EventBusFactory({}).getInstance();
         }
         // 每调用一次load函数就发送一次请求
-        load(config) {
+        load(config, type) {
             //一个HTTPRequest对象才对应一个请求
             let request = new HTTPRequest(config);
             let ctx = this;
-            this._loadManifest({
-                request: request,
-                success: function (data) {
-                    request.getResponseTime = new Date().getTime();
-                    console.log(this, data);
-                    // 在请求完成之后，触发 MANIFEST_LOADED 的事件
-                    ctx.eventBus.tigger(EventConstants.MANIFEST_LOADED, data);
-                },
-                error: function (error) {
-                    console.log(this, error);
-                }
-            });
+            if (type === "Manifest") {
+                this._loadManifest({
+                    request: request,
+                    success: function (data) {
+                        request.getResponseTime = new Date().getTime();
+                        console.log(this, data);
+                        // 在请求完成之后，触发 MANIFEST_LOADED 的事件
+                        ctx.eventBus.tigger(EventConstants.MANIFEST_LOADED, data);
+                    },
+                    error: function (error) {
+                        console.log(this, error);
+                    }
+                });
+            }
         }
     }
     const URLLoaderFactory = FactoryMaker.getSingleFactory(URLLoader);
@@ -871,7 +873,7 @@
         /**
          * @param {(Mpd | Period | AdaptationSet)} Mpd
          * @memberof SegmentTemplateParser
-         * @description MPDdom设置持续时间等内容
+         * @description MPDdom设置持续时间等内容 duration segmentDuration ，InitializationURL，MediaURL
          */
         parse(Mpd) {
             DashParser.setDurationForRepresentation(Mpd);
@@ -941,7 +943,7 @@
                 templateReg.lastIndex = 0;
                 while (r = templateReg.exec(initialization)) {
                     formatArray.push(r[0]);
-                    console.log("ri", r, formatArray);
+                    // console.log("ri", r, formatArray)
                     if (r[1] === "Number") {
                         r[1] = "1";
                     }
@@ -975,7 +977,7 @@
                 templateReg.lastIndex = 0;
                 while (r = templateReg.exec(media)) {
                     formatArray.push(r[0]);
-                    console.log("r", r, formatArray);
+                    // console.log("r", r, formatArray)
                     if (r[1] === "Number") {
                         r[1] = "@Number@";
                     }
@@ -999,7 +1001,7 @@
             }
         }
     }
-    const factory$2 = FactoryMaker.getSingleFactory(SegmentTemplateParser);
+    const factory$4 = FactoryMaker.getSingleFactory(SegmentTemplateParser);
 
     /**
      * @description 类型守卫函数
@@ -1068,26 +1070,26 @@
         return s.tag === "SegmentBase";
     }
     // 检查工具
-    let checkUtils = {
-        checkMediaType,
-        checkBaseURL,
-        checkAdaptationSet,
-        checkSegmentTemplate,
-        checkRepresentation,
-        checkSegmentList,
-        checkInitialization,
-        checkSegmentURL,
-        checkSegmentBase
-    };
-    // 如果是上面的类型的标签返回true，否则返回false
-    function findSpecificType(array, type) {
-        array.forEach(item => {
-            if (checkUtils[`check${type}`] && checkUtils[`check${type}`].call(this, item)) {
-                return true;
-            }
-        });
-        return false;
-    }
+    // export let checkUtils = {
+    //     checkMediaType,
+    //     checkBaseURL,
+    //     checkAdaptationSet,
+    //     checkSegmentTemplate,
+    //     checkRepresentation,
+    //     checkSegmentList,
+    //     checkInitialization,
+    //     checkSegmentURL,
+    //     checkSegmentBase
+    // }
+    // // 如果是上面的类型的标签返回true，否则返回false
+    // export function findSpecificType(array: Array<unknown>, type: string): boolean {
+    //     array.forEach(item => {
+    //         if (checkUtils[`check${type}`] && checkUtils[`check${type}`].call(this, item)) {
+    //             return true
+    //         }
+    //     })
+    //     return false
+    // }
 
     // DashParser 调用 new实例 的 parse方法 会返回 对应string的 节点解析数据
     class DashParser {
@@ -1098,7 +1100,7 @@
             this.setup();
         }
         setup() {
-            this.segmentTemplateParser = factory$2().getInstance();
+            this.segmentTemplateParser = factory$4().getInstance();
         }
         string2xml(s) {
             // DOMParser 提供将XML或HTML源代码从字符串解析成DOM文档的能力。
@@ -1118,6 +1120,7 @@
             }
             console.log("parseDOMChildren后的 Mpd资源", Mpd);
             this.mergeNodeSegementTemplate(Mpd);
+            this.setResolvePowerForRepresentation(Mpd);
             this.segmentTemplateParser.parse(Mpd);
             console.log("处理segmentTemplate后的mpd", Mpd);
             return Mpd;
@@ -1322,6 +1325,22 @@
             }
             else if (checkPeriod(Mpd)) ;
         }
+        /**
+         * @description 在 Representation_asArray 上添加分辨率 resolvePower
+         * @param {Mpd} Mpd
+         * @memberof DashParser
+         */
+        setResolvePowerForRepresentation(Mpd) {
+            Mpd["Period_asArray"].forEach(Period => {
+                Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
+                    AdaptationSet["Representation_asArray"].forEach(Representation => {
+                        if (Representation.width && Representation.height) {
+                            Representation.resolvePower = `${Representation.width}*${Representation.height}`;
+                        }
+                    });
+                });
+            });
+        }
     }
     const DashParserFactory = FactoryMaker.getSingleFactory(DashParser);
 
@@ -1392,10 +1411,103 @@
             return baseURL;
         }
     }
-    const factory$1 = FactoryMaker.getSingleFactory(BaseURLParser);
+    const factory$3 = FactoryMaker.getSingleFactory(BaseURLParser);
+
+    class URLUtils {
+        constructor(ctx, ...args) {
+            this.config = ctx.contest;
+        }
+        setup() { }
+        resolve(...urls) {
+            let index = 0;
+            let str = "";
+            while (index < urls.length) {
+                let url = urls[index];
+                // 如果url不以 / 或者 ./,../这种形式开头的话
+                if (/^(?!(\.|\/))/.test(url)) {
+                    // 在末尾固定加 /
+                    if (str[str.length - 1] !== '/') {
+                        str += '/';
+                    }
+                }
+                else if (/^\/.+/.test(url)) {
+                    // 如果以 / 开头 去掉开头的 /
+                    if (str[str.length - 1] === "/") {
+                        url = url.slice(1);
+                    }
+                }
+                else if (/^(\.).+/.test(url)) ;
+                str += url;
+                index++;
+            }
+            return str;
+        }
+    }
+    const factory$2 = FactoryMaker.getSingleFactory(URLUtils);
+
+    class StreamController {
+        constructor(ctx, ...args) {
+            this.config = {};
+            this.config = ctx.factory;
+            this.setup();
+        }
+        setup() {
+            this.baseURLParser = factory$3().getInstance();
+            this.URLUtils = factory$2().getInstance();
+        }
+        generateBaseURLPath(Mpd) {
+            this.baseURLPath = this.baseURLParser.parseManifestForBaseURL(Mpd);
+        }
+        generateSegmentRequestStruct(Mpd) {
+            this.generateBaseURLPath(Mpd);
+            let baseURL = Mpd["baseURL"] || "";
+            let mpdSegmentRequest = {
+                type: "MpdSegmentRequest",
+                request: []
+            };
+            for (let i = 0; i < Mpd["Period_asArray"].length; i++) {
+                let Period = Mpd["Period_asArray"][i];
+                let periodSegmentRequest = {
+                    VideoSegmentRequest: [],
+                    AudioSegmentRequest: []
+                };
+                for (let j = 0; j < Period["AdaptationSet_asArray"].length; j++) {
+                    let AdaptationSet = Period["AdaptationSet_asArray"][j];
+                    let res = this.generateAdaptationSetVideoOrAudioSegmentRequest(AdaptationSet, baseURL, i, j);
+                    if (AdaptationSet.mimeType === "video/mp4") {
+                        periodSegmentRequest.VideoSegmentRequest.push({
+                            type: "video",
+                            video: res
+                        });
+                    }
+                    else if (AdaptationSet.mimeType === "audio/mp4") {
+                        periodSegmentRequest.AudioSegmentRequest.push({
+                            lang: "en",
+                            audio: res
+                        });
+                    }
+                }
+                mpdSegmentRequest.request.push(periodSegmentRequest);
+            }
+            return mpdSegmentRequest;
+        }
+        generateAdaptationSetVideoOrAudioSegmentRequest(AdaptationSet, baseURL, i, j) {
+            let result = {};
+            for (let k = 0; k < AdaptationSet["Representation_asArray"].length; k++) {
+                let Representation = AdaptationSet["Representation_asArray"][k];
+                // 合并这几个url
+                this.URLUtils.
+                    resolve(baseURL, this.baseURLParser.getBaseURLByPath([i, j, k], this.baseURLPath));
+                // 键名是对应的分辨率
+                result[Representation.resolvePower] = [Representation.initializationURL, Representation.mediaURL];
+            }
+            return result;
+        }
+    }
+    const factory$1 = FactoryMaker.getClassFactory(StreamController);
 
     /**
-     * @description 整个dash处理流程的入口类MediaPlayer
+     * @description 整个dash处理流程的入口类MediaPlayer, 类似于项目的中转中心，用于接收任务并且将任务分配给不同的解析器去完成
      */
     class MediaPlayer {
         constructor(ctx, ...args) {
@@ -1410,7 +1522,7 @@
             this.eventBus = EventBusFactory().getInstance();
             // ignoreRoot -> 忽略Document节点，从MPD开始作为根节点
             this.dashParser = DashParserFactory({ ignoreRoot: true }).getInstance();
-            this.baseURLParser = factory$1().getInstance();
+            this.streamController = factory$1().create();
         }
         initializeEvent() {
             this.eventBus.on(EventConstants.MANIFEST_LOADED, this.onManifestLoaded, this);
@@ -1419,15 +1531,17 @@
         onManifestLoaded(data) {
             console.log("请求得到的manifest数据", data);
             let manifest = this.dashParser.parse(data); // 在这里已经将 initURL和 MediaUrl弄来了
-            this.baseURLPath = this.baseURLParser.parseManifestForBaseURL(manifest);
-            console.log(this.baseURLPath);
+            // this.baseURLPath = this.baseURLParser.parseManifestForBaseURL(manifest as Mpd);
+            // console.log(this.baseURLPath);
+            let res = this.streamController.generateSegmentRequestStruct(manifest);
+            console.log(res);
         }
         /**
          * @description 发送MPD文件的网络请求，我要做的事情很纯粹，具体实现细节由各个Loader去具体实现
          * @param url
          */
         attachSource(url) {
-            this.urlLoader.load({ url, responseType: 'text' });
+            this.urlLoader.load({ url, responseType: 'text' }, "Manifest");
         }
     }
     const factory = FactoryMaker.getClassFactory(MediaPlayer);
@@ -1563,8 +1677,6 @@
     exports.checkSegmentList = checkSegmentList;
     exports.checkSegmentTemplate = checkSegmentTemplate;
     exports.checkSegmentURL = checkSegmentURL;
-    exports.checkUtils = checkUtils;
-    exports.findSpecificType = findSpecificType;
     exports.formatTime = formatTime;
     exports.icon = icon;
     exports.parseDuration = parseDuration;

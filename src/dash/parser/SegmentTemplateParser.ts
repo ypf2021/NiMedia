@@ -21,7 +21,7 @@ class SegmentTemplateParser {
     /**
      * @param {(Mpd | Period | AdaptationSet)} Mpd
      * @memberof SegmentTemplateParser
-     * @description MPDdom设置持续时间等内容
+     * @description MPDdom设置持续时间等内容 duration segmentDuration ，InitializationURL，MediaURL
      */
     parse(Mpd: Mpd | Period | AdaptationSet) {
         DashParser.setDurationForRepresentation(Mpd);
@@ -93,7 +93,7 @@ class SegmentTemplateParser {
             templateReg.lastIndex = 0;
             while (r = templateReg.exec(initialization)) {
                 formatArray.push(r[0]);
-                console.log("ri", r, formatArray)
+                // console.log("ri", r, formatArray)
 
                 if (r[1] === "Number") {
                     r[1] = "1";
@@ -130,7 +130,7 @@ class SegmentTemplateParser {
             templateReg.lastIndex = 0;
             while (r = templateReg.exec(media)) {
                 formatArray.push(r[0]);
-                console.log("r", r, formatArray)
+                // console.log("r", r, formatArray)
                 if (r[1] === "Number") {
                     r[1] = "@Number@";
                 } else if (r[1] === "RepresentationID") {

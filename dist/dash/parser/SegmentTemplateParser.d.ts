@@ -11,7 +11,7 @@ declare class SegmentTemplateParser {
     /**
      * @param {(Mpd | Period | AdaptationSet)} Mpd
      * @memberof SegmentTemplateParser
-     * @description MPDdom设置持续时间等内容
+     * @description MPDdom设置持续时间等内容 duration segmentDuration ，InitializationURL，MediaURL
      */
     parse(Mpd: Mpd | Period | AdaptationSet): void;
     /**

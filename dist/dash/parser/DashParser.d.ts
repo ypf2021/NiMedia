@@ -37,6 +37,12 @@ declare class DashParser {
      * @description 给每一个Representation对象上挂载duration属性
      */
     static setDurationForRepresentation(Mpd: Mpd | Period | AdaptationSet): void;
+    /**
+     * @description 在 Representation_asArray 上添加分辨率 resolvePower
+     * @param {Mpd} Mpd
+     * @memberof DashParser
+     */
+    setResolvePowerForRepresentation(Mpd: Mpd): void;
 }
 declare const DashParserFactory: import("../../types/dash/Factory").FactoryFunction<DashParser>;
 export default DashParserFactory;

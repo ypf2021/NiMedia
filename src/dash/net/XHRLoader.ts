@@ -15,7 +15,7 @@ class XHRLoader {
     }
 
     // 调用这个方法发起 xml请求
-    loadManifest(config: XHRConfig) {
+    load(config: XHRConfig) {
         // 传入一个 config， config包括请求的结果处理函数，以及请求request参数，间接的传给xhr，增加代码的灵活度
         let request = config.request;
         let xhr = new XMLHttpRequest();

@@ -4,7 +4,7 @@ declare class XHRLoader {
     private config;
     constructor(ctx: FactoryObject, ...args: any[]);
     setup(): void;
-    loadManifest(config: XHRConfig): void;
+    load(config: XHRConfig): void;
 }
 declare const XHRLoaderFactory: FactoryFunction<XHRLoader>;
 export default XHRLoaderFactory;

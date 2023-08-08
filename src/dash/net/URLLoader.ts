@@ -1,5 +1,5 @@
 import { FactoryObject } from "../../types/dash/Factory";
-import { URLConfig, XHRConfig } from "../../types/dash/Net";
+import { URLConfig, XHRConfig, RequestType } from "../../types/dash/Net";
 import FactoryMaker from "../FactoryMaker";
 import HTTPRequest from "./HTTPRequest";
 import XHRLoaderFactory, { XHRLoader } from "./XHRLoader";
@@ -18,7 +18,7 @@ class URLLoader {
 
     // 这个函数调用 xhrLoader.loadManifest 发起请求
     private _loadManifest(config: XHRConfig) {
-        this.xhrLoader.loadManifest(config);
+        this.xhrLoader.load(config);
     }
 
     setup() {
@@ -29,22 +29,30 @@ class URLLoader {
     }
 
     // 每调用一次load函数就发送一次请求
-    load(config: URLConfig) {
+    load(config: URLConfig, type: RequestType) {
         //一个HTTPRequest对象才对应一个请求
         let request = new HTTPRequest(config)
         let ctx = this
-        this._loadManifest({
-            request: request,
-            success: function (data) {
-                request.getResponseTime = new Date().getTime();
-                console.log(this, data);
-                // 在请求完成之后，触发 MANIFEST_LOADED 的事件
-                ctx.eventBus.tigger(EventConstants.MANIFEST_LOADED, data)
-            },
-            error: function (error) {
-                console.log(this, error)
-            }
-        })
+
+        if (type === "Manifest") {
+            this._loadManifest({
+                request: request,
+                success: function (data) {
+                    request.getResponseTime = new Date().getTime();
+                    console.log(this, data);
+                    // 在请求完成之后，触发 MANIFEST_LOADED 的事件
+                    ctx.eventBus.tigger(EventConstants.MANIFEST_LOADED, data)
+                },
+                error: function (error) {
+                    console.log(this, error)
+                }
+            })
+        } else if (type === "Segment") {
+            //todo  
+        }
+
+
+
     }
 }
 
