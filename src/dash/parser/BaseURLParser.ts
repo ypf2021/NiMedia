@@ -28,6 +28,12 @@ class BaseURLParser {
     setup() { }
 
     // 返回URLNode 
+    /**
+     * @description 在Mpd结构中 找BaseURL ，有可能找不到返回的 URLNode信息全为null
+     * @param {Mpd} manifest
+     * @return {*}  {URLNode}
+     * @memberof BaseURLParser
+     */
     parseManifestForBaseURL(manifest: Mpd): URLNode {
         let root = new URLNode(null);
         //1. 一层层遍历每一个Period,AdaptationSet,Representation，规定BaseURL节点只可能出现在Period,AdaptationSet,Representation中

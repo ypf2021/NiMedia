@@ -46,3 +46,7 @@
 - 完善Mpd文件中 有 Segmenttemplate 时对时间的处理。 以及对应文件的 media 和init 资源的处理。
 
 - 阅读代码，理清思路
+
+#### 8/8
+- 今日完成项 StreamController
+- 解读： StreamController目前被调用的方法为 generateSegmentRequestStruct，获取 MpdSegmentRequest 包含了Mpd文件中 通过media和initial构成的地址表 

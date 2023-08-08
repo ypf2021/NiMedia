@@ -46,7 +46,7 @@ class MediaPlayer {
         // this.baseURLPath = this.baseURLParser.parseManifestForBaseURL(manifest as Mpd);
         // console.log(this.baseURLPath);
         let res = this.streamController.generateSegmentRequestStruct(manifest as Mpd);
-        console.log(res);
+        console.log("generateSegmentRequestStruct的返回结果 SegmentRequestStruct", res);
     }
 
     /**

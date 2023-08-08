@@ -1358,6 +1358,12 @@ class BaseURLParser {
     }
     setup() { }
     // 返回URLNode 
+    /**
+     * @description 在Mpd结构中 找BaseURL ，有可能找不到返回的 URLNode信息全为null
+     * @param {Mpd} manifest
+     * @return {*}  {URLNode}
+     * @memberof BaseURLParser
+     */
     parseManifestForBaseURL(manifest) {
         let root = new URLNode(null);
         //1. 一层层遍历每一个Period,AdaptationSet,Representation，规定BaseURL节点只可能出现在Period,AdaptationSet,Representation中
@@ -1439,6 +1445,7 @@ class URLUtils {
 }
 const factory$2 = FactoryMaker.getSingleFactory(URLUtils);
 
+// 
 class StreamController {
     constructor(ctx, ...args) {
         this.config = {};
@@ -1451,9 +1458,19 @@ class StreamController {
     }
     generateBaseURLPath(Mpd) {
         this.baseURLPath = this.baseURLParser.parseManifestForBaseURL(Mpd);
+        console.log("parseManifestForBaseURL 返回的 URLNode", this.baseURLPath);
     }
+    /**
+     * @description 返回 MpdSegmentRequest
+     *
+     * @param {Mpd} Mpd
+     * @return {*}  {(MpdSegmentRequest | void)}
+     * @memberof StreamController
+     */
     generateSegmentRequestStruct(Mpd) {
         this.generateBaseURLPath(Mpd);
+        console.log("parseManifestForBaseURL后的MPD", Mpd);
+        // 根据上面的结果
         let baseURL = Mpd["baseURL"] || "";
         let mpdSegmentRequest = {
             type: "MpdSegmentRequest",
@@ -1467,6 +1484,7 @@ class StreamController {
             };
             for (let j = 0; j < Period["AdaptationSet_asArray"].length; j++) {
                 let AdaptationSet = Period["AdaptationSet_asArray"][j];
+                // 拿到的这个res 是  AdaptationSet 下 所有Representation的 resolvePower:[initializationURL,mediaURL] 组成的 对象
                 let res = this.generateAdaptationSetVideoOrAudioSegmentRequest(AdaptationSet, baseURL, i, j);
                 if (AdaptationSet.mimeType === "video/mp4") {
                     periodSegmentRequest.VideoSegmentRequest.push({
@@ -1485,6 +1503,13 @@ class StreamController {
         }
         return mpdSegmentRequest;
     }
+    /**
+     *
+     * @description 得到 AdaptationSet 下 所有Representation的 resolvePower:[initializationURL,mediaURL] 组成的 对象
+     * @param {AdaptationSet} AdaptationSet
+     * @return {*}  {(AdaptationSetVideoSegmentRequest | AdaptationSetAudioSegmentRequest)}
+     * @memberof StreamController
+     */
     generateAdaptationSetVideoOrAudioSegmentRequest(AdaptationSet, baseURL, i, j) {
         let result = {};
         for (let k = 0; k < AdaptationSet["Representation_asArray"].length; k++) {
@@ -1528,7 +1553,7 @@ class MediaPlayer {
         // this.baseURLPath = this.baseURLParser.parseManifestForBaseURL(manifest as Mpd);
         // console.log(this.baseURLPath);
         let res = this.streamController.generateSegmentRequestStruct(manifest);
-        console.log(res);
+        console.log("generateSegmentRequestStruct的返回结果 SegmentRequestStruct", res);
     }
     /**
      * @description 发送MPD文件的网络请求，我要做的事情很纯粹，具体实现细节由各个Loader去具体实现

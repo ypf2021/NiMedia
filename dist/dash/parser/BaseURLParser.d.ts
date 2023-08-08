@@ -12,6 +12,12 @@ declare class BaseURLParser {
     private config;
     constructor(ctx: FactoryObject, ...args: any[]);
     setup(): void;
+    /**
+     * @description 在Mpd结构中 找BaseURL ，有可能找不到返回的 URLNode信息全为null
+     * @param {Mpd} manifest
+     * @return {*}  {URLNode}
+     * @memberof BaseURLParser
+     */
     parseManifestForBaseURL(manifest: Mpd): URLNode;
     getBaseURLByPath(path: Path, urlNode: URLNode): string;
 }
