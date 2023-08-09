@@ -21,6 +21,10 @@ class URLLoader {
         this.xhrLoader.load(config);
     }
 
+    private _loadSegment(config: XHRConfig) {
+        this.xhrLoader.load(config);
+    }
+
     setup() {
         // 拿到的instance就是 xhrloader 的实例
         this.xhrLoader = XHRLoaderFactory({}).getInstance();
@@ -29,13 +33,13 @@ class URLLoader {
     }
 
     // 每调用一次load函数就发送一次请求
-    load(config: URLConfig, type: RequestType) {
+    load(config: URLConfig, type: RequestType): void | Promise<any> {
         //一个HTTPRequest对象才对应一个请求
         let request = new HTTPRequest(config)
         let ctx = this
 
         if (type === "Manifest") {
-            this._loadManifest({
+            ctx._loadManifest({
                 request: request,
                 success: function (data) {
                     request.getResponseTime = new Date().getTime();
@@ -48,7 +52,17 @@ class URLLoader {
                 }
             })
         } else if (type === "Segment") {
-            //todo  
+            return new Promise((resolve, reject) => {
+                ctx._loadSegment({
+                    request: request,
+                    success: function (data) {
+                        resolve(data);
+                    },
+                    error: function (error) {
+                        reject(error);
+                    }
+                })
+            })
         }
 
 

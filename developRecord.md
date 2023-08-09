@@ -50,3 +50,11 @@
 #### 8/8
 - 今日完成项 StreamController
 - 解读： StreamController目前被调用的方法为 generateSegmentRequestStruct，获取 MpdSegmentRequest 包含了Mpd文件中 通过media和initial构成的地址表 
+
+#### 8/9
+- 今日完成项: 
+- 将dashParse 和 SegmentTemplateParser 中作用区分的部分进行提取，将Media，initial，duration等内容都转移到dashParse中，让dashParse专注于解析MPD文件
+- 添加了两个监听事件，一个用来在attcah时在 Mpd上绑定baseURL， 一个在解析完Mpd文件 dashParse之后，由StreamController进行请求结构体的构建
+- StreamController 构建请求结构体，主要是将各个部分的baseURL进行拼接，并赋值給对应的 video（区分分辨率），audio，
+- 辅助工具 URLUtils 有 resolve 合并函数， 以及 sliceLastURLPath 函数
+- 理清思路

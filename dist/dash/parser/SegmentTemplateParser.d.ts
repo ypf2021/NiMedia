@@ -1,17 +1,16 @@
 import { FactoryObject } from "../../types/dash/Factory";
 import { AdaptationSet, Mpd, Period, Representation, SegmentTemplate } from "../../types/dash/MpdFile";
 /**
- * @description 该类仅用于处理MPD文件中具有SegmentTemplate此种情况
+ * @description 该类仅用于处理MPD文件中具有SegmentTemplate此种情况,
  */
 declare class SegmentTemplateParser {
     private config;
-    private dashParser;
     constructor(ctx: FactoryObject, ...args: any[]);
     setup(): void;
     /**
      * @param {(Mpd | Period | AdaptationSet)} Mpd
      * @memberof SegmentTemplateParser
-     * @description MPDdom设置持续时间等内容 duration segmentDuration ，InitializationURL，MediaURL
+     * @description 处理 InitializationURL，MediaURL 的函数 将其从模板转换为真实的地址，并放到Representation上面
      */
     parse(Mpd: Mpd | Period | AdaptationSet): void;
     /**
@@ -19,11 +18,10 @@ declare class SegmentTemplateParser {
      * @memberof SegmentTemplateParser
      * @description 设置 Representation_asArray 的 segmentDuration 一般为 (duration / timescale)
      */
-    setSegmentDurationForRepresentation(Mpd: Mpd): void;
     /**
      * @param {Mpd} Mpd
      * @memberof SegmentTemplateParser
-     * @description 调用 处理 InitializationURL，MediaURL 的函数
+     * @description 调用 处理 InitializationURL，MediaURL 的函数 将其从模板转换为真实的地址
      */
     parseNodeSegmentTemplate(Mpd: Mpd): void;
     /**

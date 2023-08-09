@@ -63,6 +63,7 @@ export type Mpd = {
     minBufferTime?: string | null; // 至少需要缓冲的时间
     minimumUpdatePeriod?: string | null; // 至少每隔这么长时间,MPD就有可能更新一次,只用于直播流
     maxSegmentDuration?: string | null;
+    baseURL?: string;
 };
 
 // Period代表某一个时间段

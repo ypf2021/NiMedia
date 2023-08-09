@@ -18,7 +18,7 @@ class URLUtils {
             // 如果url不以 / 或者 ./,../这种形式开头的话
             if (/^(?!(\.|\/))/.test(url)) {
                 // 在末尾固定加 /
-                if (str[str.length - 1] !== '/') {
+                if (str[str.length - 1] !== '/' && str !== "") {
                     str += '/';
                 }
             } else if (/^\/.+/.test(url)) {
@@ -35,6 +35,17 @@ class URLUtils {
         }
         return str
     }
+
+    // 从前到后，找到最后一个 / 之前的url
+    sliceLastURLPath(url: string): string {
+        for (let i = url.length - 1; i >= 0; i--) {
+            if (url[i] === "/") {
+                return url.slice(0, i);
+            }
+        }
+        return url
+    }
+
 }
 
 const factory = FactoryMaker.getSingleFactory(URLUtils);

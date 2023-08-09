@@ -24,6 +24,7 @@ export type Mpd = {
     minBufferTime?: string | null;
     minimumUpdatePeriod?: string | null;
     maxSegmentDuration?: string | null;
+    baseURL?: string;
 };
 export type Period = {
     tag: "Period";

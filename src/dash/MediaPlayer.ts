@@ -41,12 +41,12 @@ class MediaPlayer {
 
     //MPD文件请求成功获得对应的data数据
     onManifestLoaded(data) {
-        console.log("请求得到的manifest数据", data)
-        let manifest = this.dashParser.parse(data) // 在这里已经将 initURL和 MediaUrl弄来了
-        // this.baseURLPath = this.baseURLParser.parseManifestForBaseURL(manifest as Mpd);
-        // console.log(this.baseURLPath);
-        let res = this.streamController.generateSegmentRequestStruct(manifest as Mpd);
-        console.log("generateSegmentRequestStruct的返回结果 SegmentRequestStruct", res);
+        console.log("请求得到的manifest数据", data) //这里的data是字符串
+        let manifest = this.dashParser.parse(data) // 在这里已经将 data已经将数据都处理好了
+
+        // let res = this.streamController.generateSegmentRequestStruct(manifest as Mpd);
+        // console.log("generateSegmentRequestStruct的返回结果 SegmentRequestStruct", res);
+        this.eventBus.tigger(EventConstants.MANIFEST_PARSE_COMPLETED, manifest)
     }
 
     /**
@@ -54,6 +54,7 @@ class MediaPlayer {
      * @param url 
      */
     public attachSource(url: string) {
+        this.eventBus.tigger(EventConstants.SOURCE_ATTACHED, url)
         this.urlLoader.load({ url, responseType: 'text' }, "Manifest");
     }
 }

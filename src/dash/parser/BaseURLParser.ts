@@ -73,14 +73,18 @@ class BaseURLParser {
             if (path[i] >= root.children.length || path[i] < 0) {
                 throw new Error("传入的路径不正确");
             }
-            baseURL += root.children[path[i]].url;
+            // baseURL += root.children[path[i]].url;
+            if (root.children[path[i]].url) {
+                baseURL += root.children[path[i]].url;
+            }
             root = root.children[path[i]];
         }
         // 遍历到最后一层时 root 的child应该为空，不能再有值
         if (root.children.length > 0) {
             throw new Error("传入的路径不正确");
         }
-        return baseURL;
+        // console.log("getBaseURLByPath生成的baseUrl", baseURL) // 如果 AdaptionSet再往下都没有 baseURL那么就全是空
+        return baseURL; // 这是对每一层的url进行了一个拼接
     }
 }
 

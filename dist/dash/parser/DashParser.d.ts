@@ -1,12 +1,22 @@
 import { ManifestObjectNode } from "../../types/dash/DomNodeTypes";
 import { FactoryObject } from "../../types/dash/Factory";
-import { Mpd, AdaptationSet, Period } from "../../types/dash/MpdFile";
+import { Mpd } from "../../types/dash/MpdFile";
 declare class DashParser {
     private config;
     private segmentTemplateParser;
+    private eventBus;
+    private mpdURL;
+    private URLUtils;
     constructor(ctx: FactoryObject, ...args: any[]);
     setup(): void;
+    initialEvent(): void;
     string2xml(s: string): Document;
+    /**
+     * @description 处理请求到的Mpd字符串，parse之后 Mpd有SegmentTemplate，分辨率，持续时间，Media，initial地址，baseURL
+     * @param {string} manifest
+     * @return {*}  {(ManifestObjectNode["MpdDocument"] | ManifestObjectNode["Mpd"])}
+     * @memberof DashParser
+     */
     parse(manifest: string): ManifestObjectNode["MpdDocument"] | ManifestObjectNode["Mpd"];
     /**
      * @param {T} name
@@ -29,19 +39,32 @@ declare class DashParser {
      * @description 用来合并节点的内容 合并规则：有相同tag时 有的属性按 node，没有的属性按compare，node上面没有时，全用compare
      */
     mergeNode(node: FactoryObject, compare: FactoryObject): void;
-    static getTotalDuration(Mpd: Mpd): number | never;
+    getTotalDuration(Mpd: Mpd): number | never;
     /**
      * @static
      * @param {(Mpd | Period | AdaptationSet)} Mpd
      * @memberof DashParser
      * @description 给每一个Representation对象上挂载duration属性
      */
-    static setDurationForRepresentation(Mpd: Mpd | Period | AdaptationSet): void;
+    setDurationForRepresentation(Mpd: Mpd): void;
     /**
-     * @description 在 Representation_asArray 上添加分辨率 resolvePower
-     * @param {Mpd} Mpd
+     * @description 将Mpd的请求URL 截取到最后一个 / 之前，作为Mpd的BaseURL
+     * @param {*} Mpd
      * @memberof DashParser
      */
+    setBaseURLForMpd(Mpd: any): void;
+    /**
+    * @param {Mpd} Mpd
+    * @memberof SegmentTemplateParser
+    * @description 设置 Representation_asArray 的 segmentDuration 一般为 (duration / timescale)
+    */
+    setSegmentDurationForRepresentation(Mpd: Mpd): void;
+    onSourceAttached(url: string): void;
+    /**
+    * @description 在 Representation_asArray 上添加分辨率 resolvePower
+    * @param {Mpd} Mpd
+    * @memberof DashParser
+    */
     setResolvePowerForRepresentation(Mpd: Mpd): void;
 }
 declare const DashParserFactory: import("../../types/dash/Factory").FactoryFunction<DashParser>;

@@ -5,20 +5,32 @@ import { Mpd, SegmentTemplate, AdaptationSet, Period } from "../../types/dash/Mp
 import SegmentTemplateParserFactory, { SegmentTemplateParser } from "./SegmentTemplateParser";
 import { parseDuration, switchToSeconds } from "../../utils/format";
 import { checkMpd, checkPeriod } from "../../utils/typeCheck";
+import EventBusFactory, { EventBus } from "../event/EventBus";
+import { EventConstants } from "../event/EventConstants";
+import URLUtilsFactory, { URLUtils } from "../utils/URLUtils";
 
 // DashParser 调用 new实例 的 parse方法 会返回 对应string的 节点解析数据
 class DashParser {
     private config: FactoryObject = {};
     private segmentTemplateParser: SegmentTemplateParser;
-    // private templateReg: RegExp = /\$(.+)?\$/;
+    private eventBus: EventBus;
+    private mpdURL: string;
+    private URLUtils: URLUtils;
 
     constructor(ctx: FactoryObject, ...args) {
         this.config = ctx.context;
-        this.setup()
+        this.setup();
+        this.initialEvent();
     }
 
     setup() {
         this.segmentTemplateParser = SegmentTemplateParserFactory().getInstance()
+        this.eventBus = EventBusFactory().getInstance();
+        this.URLUtils = URLUtilsFactory().getInstance();
+    }
+
+    initialEvent() {
+        this.eventBus.on(EventConstants.SOURCE_ATTACHED, this.onSourceAttached, this)
     }
 
     string2xml(s: string): Document {
@@ -28,6 +40,13 @@ class DashParser {
     }
 
     // 解析请求到的xml类型的文本字符串，生成MPD对象,方便后续的解析
+
+    /**
+     * @description 处理请求到的Mpd字符串，parse之后 Mpd有SegmentTemplate，分辨率，持续时间，Media，initial地址，baseURL
+     * @param {string} manifest
+     * @return {*}  {(ManifestObjectNode["MpdDocument"] | ManifestObjectNode["Mpd"])}
+     * @memberof DashParser
+     */
     parse(manifest: string): ManifestObjectNode["MpdDocument"] | ManifestObjectNode["Mpd"] {
         let xml = this.string2xml(manifest);
 
@@ -42,6 +61,9 @@ class DashParser {
 
         this.mergeNodeSegementTemplate(Mpd);
         this.setResolvePowerForRepresentation(Mpd);
+        this.setDurationForRepresentation(Mpd);
+        this.setSegmentDurationForRepresentation(Mpd);
+        this.setBaseURLForMpd(Mpd);
         this.segmentTemplateParser.parse(Mpd);
         console.log("处理segmentTemplate后的mpd", Mpd);
 
@@ -197,7 +219,7 @@ class DashParser {
     }
 
     // 获取播放的总时间
-    static getTotalDuration(Mpd: Mpd): number | never {
+    getTotalDuration(Mpd: Mpd): number | never {
         let totalDuration = 0;
         let MpdDuration = NaN;
         if (Mpd.mediaPresentationDuration) {
@@ -225,43 +247,84 @@ class DashParser {
      * @memberof DashParser
      * @description 给每一个Representation对象上挂载duration属性
      */
-    static setDurationForRepresentation(Mpd: Mpd | Period | AdaptationSet) {
+    setDurationForRepresentation(Mpd: Mpd) {
 
-        if (checkMpd(Mpd)) {
-            //1. 如果只有一个Period
-            if (Mpd["Period_asArray"].length === 1) {
-                let totalDuration = this.getTotalDuration(Mpd);
-                Mpd["Period_asArray"].forEach(Period => {
-                    Period.duration = Period.duration || totalDuration;
-                    Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
-                        AdaptationSet.duration = totalDuration;
-                        AdaptationSet["Representation_asArray"].forEach(Representation => {
-                            Representation.duration = totalDuration;
-                        })
+        //1. 如果只有一个Period
+        if (Mpd["Period_asArray"].length === 1) {
+            let totalDuration = this.getTotalDuration(Mpd);
+            Mpd["Period_asArray"].forEach(Period => {
+                Period.duration = Period.duration || totalDuration;
+                Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
+                    AdaptationSet.duration = totalDuration;
+                    AdaptationSet["Representation_asArray"].forEach(Representation => {
+                        Representation.duration = totalDuration;
                     })
                 })
-            } else {
-                Mpd["Period_asArray"].forEach(Period => {
-                    if (!Period.duration) throw new Error("MPD文件格式错误");
-                    let duration = Period.duration;
-                    Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
-                        AdaptationSet.duration = duration;
-                        AdaptationSet["Representation_asArray"].forEach(Representation => {
-                            Representation.duration = duration;
-                        })
+            })
+        } else {
+            Mpd["Period_asArray"].forEach(Period => {
+                if (!Period.duration) throw new Error("MPD文件格式错误");
+                let duration = Period.duration;
+                Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
+                    AdaptationSet.duration = duration;
+                    AdaptationSet["Representation_asArray"].forEach(Representation => {
+                        Representation.duration = duration;
                     })
                 })
-            }
-        } else if (checkPeriod(Mpd)) {
-            //todo
+            })
         }
     }
 
     /**
-     * @description 在 Representation_asArray 上添加分辨率 resolvePower
-     * @param {Mpd} Mpd
+     * @description 将Mpd的请求URL 截取到最后一个 / 之前，作为Mpd的BaseURL
+     * @param {*} Mpd
      * @memberof DashParser
      */
+    setBaseURLForMpd(Mpd) {
+        // 将用来请求Mpd的url截取到最后一个 / 之前
+        // console.log("截取前的url", this.mpdURL)
+        Mpd.baseURL = this.URLUtils.sliceLastURLPath(this.mpdURL);
+        // console.log("截取后的url", Mpd)
+    }
+
+    // 给每一个Rpresentation对象上挂载segmentDuration属性，用来标识该Representation每一个Segment的时长
+    /**
+    * @param {Mpd} Mpd
+    * @memberof SegmentTemplateParser
+    * @description 设置 Representation_asArray 的 segmentDuration 一般为 (duration / timescale)
+    */
+    setSegmentDurationForRepresentation(Mpd: Mpd) {
+        let maxSegmentDuration = switchToSeconds(parseDuration(Mpd.maxSegmentDuration));
+        Mpd["Period_asArray"].forEach(Period => {
+            Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
+                AdaptationSet["Representation_asArray"].forEach(Representation => {
+                    if (Representation["SegmentTemplate"]) {
+                        if ((Representation["SegmentTemplate"] as SegmentTemplate).duration) {
+                            let duration = (Representation["SegmentTemplate"] as SegmentTemplate).duration
+                            let timescale = (Representation["SegmentTemplate"] as SegmentTemplate).timescale || 1;
+                            Representation.segmentDuration = (duration / timescale).toFixed(1);
+                        } else {
+                            if (maxSegmentDuration) {
+                                Representation.segmentDuration = maxSegmentDuration;
+                            } else {
+                                throw new Error("MPD文件格式错误")
+                            }
+                        }
+                    }
+                })
+            })
+        })
+    }
+
+    onSourceAttached(url: string) {
+        this.mpdURL = url; // 这里拿到的url是我们用来请求Mpd文件的url
+    }
+
+    /**
+    * @description 在 Representation_asArray 上添加分辨率 resolvePower
+    * @param {Mpd} Mpd
+    * @memberof DashParser
+    */
     setResolvePowerForRepresentation(Mpd: Mpd) {
         Mpd["Period_asArray"].forEach(Period => {
             Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
