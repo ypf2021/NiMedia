@@ -739,7 +739,8 @@ const EventConstants = {
     MANIFEST_LOADED: "manifestLoaded",
     MANIFEST_PARSE_COMPLETED: "manifestParseCompleted",
     SOURCE_ATTACHED: "sourceAttached",
-    SEGEMTN_LOADED: "segmentLoaded"
+    SEGEMTN_LOADED: "segmentLoaded",
+    BUFFER_APPENDED: "bufferAppended"
 };
 
 // urlLoader 在发起xhr请求之前配置相关参数
@@ -947,7 +948,7 @@ class SegmentTemplateParser {
         }
     }
 }
-const factory$5 = FactoryMaker.getSingleFactory(SegmentTemplateParser);
+const factory$6 = FactoryMaker.getSingleFactory(SegmentTemplateParser);
 
 //  格式化播放时间工具
 function addZero(num) {
@@ -1065,7 +1066,7 @@ class URLUtils {
         return url;
     }
 }
-const factory$4 = FactoryMaker.getSingleFactory(URLUtils);
+const factory$5 = FactoryMaker.getSingleFactory(URLUtils);
 
 // DashParser 调用 new实例 的 parse方法 会返回 对应string的 节点解析数据
 class DashParser {
@@ -1076,9 +1077,9 @@ class DashParser {
         this.initialEvent();
     }
     setup() {
-        this.segmentTemplateParser = factory$5().getInstance();
+        this.segmentTemplateParser = factory$6().getInstance();
         this.eventBus = EventBusFactory().getInstance();
-        this.URLUtils = factory$4().getInstance();
+        this.URLUtils = factory$5().getInstance();
     }
     initialEvent() {
         this.eventBus.on(EventConstants.SOURCE_ATTACHED, this.onSourceAttached, this);
@@ -1115,7 +1116,6 @@ class DashParser {
         console.log("处理segmentTemplate后的mpd", Mpd);
         return Mpd;
     }
-    // 
     /**
      * @param {T} name
      * @param {Node} node
@@ -1488,7 +1488,7 @@ class BaseURLParser {
         return baseURL; // 这是对每一层的url进行了一个拼接
     }
 }
-const factory$3 = FactoryMaker.getSingleFactory(BaseURLParser);
+const factory$4 = FactoryMaker.getSingleFactory(BaseURLParser);
 
 // StreamController  构建请求的结构体
 class StreamController {
@@ -1503,8 +1503,8 @@ class StreamController {
         this.initialEvent();
     }
     setup() {
-        this.baseURLParser = factory$3().getInstance();
-        this.URLUtils = factory$4().getInstance();
+        this.baseURLParser = factory$4().getInstance();
+        this.URLUtils = factory$5().getInstance();
         this.eventBus = EventBusFactory().getInstance();
         this.urlLoader = URLLoaderFactory().getInstance();
     }
@@ -1513,7 +1513,7 @@ class StreamController {
         this.eventBus.on(EventConstants.MANIFEST_PARSE_COMPLETED, this.onManifestParseCompleted, this);
     }
     /**
-     * @description 根据处理好的 mainifest 构建出 请求的结构体
+     * @description 根据处理好的 mainifest 构建出 请求的结构体, 并进行segment的请求
      * @param {Mpd} mainifest
      * @memberof StreamController
      */
@@ -1597,6 +1597,7 @@ class StreamController {
         }
         return result;
     }
+    //初始化播放流，一次至多加载23个Segement过来
     startStream(Mpd) {
         Mpd["Period_asArray"].forEach((p, pid) => __awaiter(this, void 0, void 0, function* () {
             // 请求结构是按照索引顶的，就可以拿index进行请求
@@ -1604,7 +1605,7 @@ class StreamController {
             this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, ires);
             // 拿到media url 的数量
             let number = this.segmentRequestStruct.request[pid].VideoSegmentRequest[0].video[this.videoResolvePower][1].length;
-            for (let i = 0; i < number; i++) {
+            for (let i = 0; i < (number >= 23 ? 23 : number); i++) {
                 let mres = yield this.loadMediaSegment(pid, i);
                 this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, mres);
             }
@@ -1631,17 +1632,102 @@ class StreamController {
         return Promise.all([p1, p2]);
     }
 }
-const factory$2 = FactoryMaker.getClassFactory(StreamController);
+const factory$3 = FactoryMaker.getClassFactory(StreamController);
+
+/**
+ * @description MediaPlayerBuffer.arrayBuffer 用来存放 playerBuffer 的数组
+ * @class MediaPlayerBuffer
+ */
+class MediaPlayerBuffer {
+    constructor(ctx, ...args) {
+        this.config = {};
+        this.arrayBuffer = new Array(); // new一个数组
+        this.config = ctx.context;
+    }
+    ;
+    push(buffer) {
+        this.arrayBuffer.push(buffer);
+    }
+    clear() {
+        this.arrayBuffer = [];
+    }
+    isEmpty() {
+        return this.arrayBuffer.length === 0;
+    }
+    delete(buffer) {
+        if (this.arrayBuffer.includes(buffer)) {
+            let index = this.arrayBuffer.indexOf(buffer);
+            this.arrayBuffer.splice(index, 1);
+        }
+    }
+    top() {
+        return this.arrayBuffer[0] || null;
+    }
+    pop() {
+        this.arrayBuffer.length && this.arrayBuffer.pop();
+    }
+}
+const factory$2 = FactoryMaker.getSingleFactory(MediaPlayerBuffer);
 
 class MediaPlayerController {
     constructor(ctx, ...args) {
         this.config = {};
         this.config = ctx.context;
+        if (this.config.video) {
+            this.video = this.config.video;
+        }
         this.setup();
+        this.initEvent();
+        this.initPlayer();
     }
     setup() {
         // MediaSource() 是 MediaSource 的构造函数，返回一个没有分配 source buffers 新的 MediaSource 对象。
         this.mediaSource = new MediaSource();
+        this.buffer = factory$2().getInstance();
+        this.eventBus = EventBusFactory().getInstance();
+    }
+    initEvent() {
+        // 每加载一个 segment 并将数据 push到buffer中时触发
+        this.eventBus.on(EventConstants.BUFFER_APPENDED, () => {
+            // if (!this.videoSourceBuffer.updating && !this.audioSourceBuffer.updating) {
+            console.log("BUFFER_APPENDED");
+            this.appendSource();
+            // }
+        }, this);
+    }
+    initPlayer() {
+        this.video.src = window.URL.createObjectURL(this.mediaSource);
+        this.video.pause();
+        this.mediaSource.addEventListener("sourceopen", this.onSourceopen.bind(this));
+    }
+    appendSource() {
+        let data = this.buffer.top();
+        if (data) {
+            this.buffer.delete(data);
+            this.appendVideoSource(data.video);
+            this.appendAudioSource(data.audio);
+        }
+    }
+    appendVideoSource(data) {
+        // Uint8Array 数组类型表示一个 8 位无符号整型数组，创建时内容被初始化为 0。创建完后，可以以对象的方式或使用数组下标索引的方式引用数组中的元素。
+        this.videoSourceBuffer.appendBuffer(new Uint8Array(data));
+    }
+    appendAudioSource(data) {
+        this.audioSourceBuffer.appendBuffer(new Uint8Array(data));
+    }
+    onSourceopen(e) {
+        // addSourceBuffer() 创建一个带有给定 MIME 类型的新的 SourceBuffer 并添加到 MediaSource 的 SourceBuffers 列表。
+        this.videoSourceBuffer = this.mediaSource.addSourceBuffer('video/mp4; codecs="avc1.64001E"');
+        this.audioSourceBuffer = this.mediaSource.addSourceBuffer('audio/mp4; codecs="mp4a.40.2"');
+        // updateend 在 SourceBuffer.appendBuffer() 或 SourceBuffer.remove() 结束后触发。这个事件在 update 后触发。
+        this.videoSourceBuffer.addEventListener("updateend", this.onUpdateend.bind(this));
+        this.audioSourceBuffer.addEventListener("updateend", this.onUpdateend.bind(this));
+    }
+    onUpdateend() {
+        //  SourceBuffer.updating 一个布尔值，表示 SourceBuffer 当前是否正在更新——即当前是否正在进行, 正常情况下 updateend 触发时为 updating 为 false
+        // if (!this.videoSourceBuffer.updating && !this.audioSourceBuffer.updating) {
+        this.appendSource();
+        // }
     }
 }
 const factory$1 = FactoryMaker.getClassFactory(MediaPlayerController);
@@ -1662,8 +1748,8 @@ class MediaPlayer {
         this.eventBus = EventBusFactory().getInstance();
         // ignoreRoot -> 忽略Document节点，从MPD开始作为根节点
         this.dashParser = DashParserFactory({ ignoreRoot: true }).getInstance();
-        this.streamController = factory$2().create();
-        this.mediaPlayerController = factory$1().create();
+        this.streamController = factory$3().create();
+        this.buffer = factory$2().getInstance(); // 在这里呗初次创建， 其他时候都是直接引用
     }
     initializeEvent() {
         this.eventBus.on(EventConstants.MANIFEST_LOADED, this.onManifestLoaded, this);
@@ -1694,6 +1780,16 @@ class MediaPlayer {
         let videoBuffer = data[0];
         let audioBuffer = data[1];
         console.log("加载Segment成功", videoBuffer, audioBuffer);
+        this.buffer.push({
+            video: videoBuffer,
+            audio: audioBuffer
+        });
+        this.eventBus.tigger(EventConstants.BUFFER_APPENDED);
+    }
+    attachVideo(video) {
+        console.log("MediaPlayer attachVideo", video);
+        this.video = video;
+        this.mediaPlayerController = factory$1({ video: video }).create();
     }
 }
 const factory = FactoryMaker.getClassFactory(MediaPlayer);
@@ -1703,6 +1799,8 @@ class MpdPlayer {
     constructor(player) {
         let mediaPlayer = factory().create();
         mediaPlayer.attachSource(player.playerOptions.url);
+        mediaPlayer.attachVideo(player.video);
+        player.video.controls = true;
     }
 }
 

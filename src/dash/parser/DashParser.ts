@@ -70,8 +70,6 @@ class DashParser {
         return Mpd
     }
 
-    // 
-
     /**
      * @param {T} name
      * @param {Node} node

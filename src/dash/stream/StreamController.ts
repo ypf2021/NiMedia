@@ -43,7 +43,7 @@ class StreamController {
     }
 
     /**
-     * @description 根据处理好的 mainifest 构建出 请求的结构体
+     * @description 根据处理好的 mainifest 构建出 请求的结构体, 并进行segment的请求
      * @param {Mpd} mainifest
      * @memberof StreamController
      */
@@ -136,6 +136,7 @@ class StreamController {
         return result;
     }
 
+    //初始化播放流，一次至多加载23个Segement过来
     startStream(Mpd: Mpd) {
         Mpd["Period_asArray"].forEach(async (p, pid) => {
             // 请求结构是按照索引顶的，就可以拿index进行请求
@@ -143,7 +144,7 @@ class StreamController {
             this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, ires);
             // 拿到media url 的数量
             let number = this.segmentRequestStruct.request[pid].VideoSegmentRequest[0].video[this.videoResolvePower][1].length;
-            for (let i = 0; i < number; i++) {
+            for (let i = 0; i < (number >= 23 ? 23 : number); i++) {
                 let mres = await this.loadMediaSegment(pid, i);
                 this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, mres);
             }

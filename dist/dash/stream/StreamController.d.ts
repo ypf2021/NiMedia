@@ -15,7 +15,7 @@ declare class StreamController {
     setup(): void;
     initialEvent(): void;
     /**
-     * @description 根据处理好的 mainifest 构建出 请求的结构体
+     * @description 根据处理好的 mainifest 构建出 请求的结构体, 并进行segment的请求
      * @param {Mpd} mainifest
      * @memberof StreamController
      */

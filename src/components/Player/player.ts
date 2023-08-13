@@ -19,7 +19,6 @@ class Player extends BaseEvent {
     loadingMask!: LoadingMask;
     errorMask!: ErrorMask;
 
-
     constructor(options: PlayerOptions) {
         super()
         this.playerOptions = Object.assign(this.playerOptions, options);
