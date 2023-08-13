@@ -1,6 +1,6 @@
 import { FactoryObject } from "../../types/dash/Factory";
 import { AdaptationSet, Mpd } from "../../types/dash/MpdFile";
-import { AdaptationSetAudioSegmentRequest, AdaptationSetVideoSegmentRequest, MpdSegmentRequest, PeriodSegmentRequest } from "../../types/dash/Net";
+import { AdaptationSetAudioSegmentRequest, AdaptationSetVideoSegmentRequest, MpdSegmentRequest, PeriodSegmentRequest, PlayerBuffer } from "../../types/dash/Net";
 import FactoryMaker from "../FactoryMaker";
 import BaseURLParserFactory, { BaseURLParser, URLNode } from "../parser/BaseURLParser";
 import URLUtilsFactory, { URLUtils } from "../utils/URLUtils";
@@ -23,9 +23,14 @@ class StreamController {
     //整个MPD文件所需要发送请求的结构体对象
     private segmentRequestStruct: MpdSegmentRequest;
 
+    // 
+    private mediaIndex: number = 0;
+    private streamId: number = 0;
+    private firstRequestNumber: number;
+
     constructor(ctx: FactoryObject, ...args: any[]) {
         this.config = ctx.factory;
-        console.log("StreamControllerConfig", this.config)
+        this.firstRequestNumber = this.config.num || 23;
         this.setup();
         this.initialEvent();
     }
@@ -40,6 +45,8 @@ class StreamController {
     initialEvent() {
         // 当 Mpd 文件解析完毕之后，回来调用这个函数
         this.eventBus.on(EventConstants.MANIFEST_PARSE_COMPLETED, this.onManifestParseCompleted, this);
+
+        this.eventBus.on(EventConstants.SEGMENT_CONSUMED, this.onSegmentConsumed, this)
     }
 
     /**
@@ -136,19 +143,24 @@ class StreamController {
         return result;
     }
 
+    // 获取到当前 streamId 中有的总共的 mediaUrl的数量
+    getNumberOfMediaSegmentForPeriod() {
+        return this.segmentRequestStruct.request[this.streamId].VideoSegmentRequest[0].video[this.videoResolvePower][1].length;
+    }
+
     //初始化播放流，一次至多加载23个Segement过来
-    startStream(Mpd: Mpd) {
-        Mpd["Period_asArray"].forEach(async (p, pid) => {
-            // 请求结构是按照索引顶的，就可以拿index进行请求
-            let ires = await this.loadInitialSegment(pid);
-            this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, ires);
-            // 拿到media url 的数量
-            let number = this.segmentRequestStruct.request[pid].VideoSegmentRequest[0].video[this.videoResolvePower][1].length;
-            for (let i = 0; i < (number >= 23 ? 23 : number); i++) {
-                let mres = await this.loadMediaSegment(pid, i);
-                this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, mres);
-            }
-        })
+    async startStream(Mpd: Mpd) {
+        let p = Mpd["Period_asArray"][this.streamId];
+        let ires = await this.loadInitialSegment(this.streamId)
+
+        this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, { data: ires, streamId: this.streamId })
+        let number = this.getNumberOfMediaSegmentForPeriod();
+
+        for (let i = 0; i < (number >= this.firstRequestNumber ? this.firstRequestNumber : number); i++) {
+            let mres = await this.loadMediaSegment(this.streamId, this.mediaIndex);
+            this.mediaIndex++;
+            this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, { data: mres, streamId: this.streamId });
+        }
     }
 
     //此处的streamId标识具体的Period对象
@@ -174,7 +186,29 @@ class StreamController {
         return Promise.all([p1, p2]);
     }
 
+    // 播放器消费一个Segment我就继续请求一个Segment
+    async onSegmentConsumed() {
+        if (!this.segmentRequestStruct.request[this.streamId]) return;
+        let total = this.getNumberOfMediaSegmentForPeriod();
+        // 如果当前Period全部请求完毕,就去请求另一个Peiod中的内容
+        if (this.mediaIndex >= total) {
+            this.mediaIndex = 0;
+            this.streamId++;
+        } else {
+            this.mediaIndex++;
+        }
 
+        // 再接着往下走时，如果没了 就播放完了
+        if (this.segmentRequestStruct.request[this.streamId] === undefined) {
+            console.log("播放完毕")
+            this.eventBus.tigger(EventConstants.MEDIA_PLAYBACK_FINISHED);
+        } else {
+            let mres = await this.loadMediaSegment(this.streamId, this.mediaIndex);
+            this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, { data: mres, streamId: this.streamId });
+        }
+
+
+    }
 }
 
 const factory = FactoryMaker.getClassFactory(StreamController);

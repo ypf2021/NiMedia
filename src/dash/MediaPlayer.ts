@@ -4,6 +4,7 @@ import URLLoaderFactory, { URLLoader } from "./net/URLLoader";
 import DashParserFactory, { DashParser } from "./parser/DashParser";
 import EventBusFactory, { EventBus } from "./event/EventBus";
 import { EventConstants } from "./event/EventConstants";
+import { ConsumedSegment } from "../types/dash/Stream";
 import { Mpd } from "../types/dash/MpdFile";
 import BaseURLParserFactory, { BaseURLParser, URLNode } from "./parser/BaseURLParser";
 import StreamControllerFactory, { StreamController } from "./stream/StreamController";
@@ -23,6 +24,7 @@ class MediaPlayer {
     private streamController: StreamController;
     private video: HTMLVideoElement;
     private buffer: MediaPlayerBuffer;
+    private firstCurrentRequest: number = 0;
 
     constructor(ctx: FactoryObject, ...args: any[]) {
         this.config = ctx.context;
@@ -36,7 +38,7 @@ class MediaPlayer {
         this.eventBus = EventBusFactory().getInstance();
         // ignoreRoot -> 忽略Document节点，从MPD开始作为根节点
         this.dashParser = DashParserFactory({ ignoreRoot: true }).getInstance()
-        this.streamController = StreamControllerFactory().create();
+        this.streamController = StreamControllerFactory({ num: 23 }).create();
         this.buffer = MediaPlayerBufferFactory().getInstance(); // 在这里呗初次创建， 其他时候都是直接引用
     }
 
@@ -65,18 +67,27 @@ class MediaPlayer {
      * @param url 
      */
     public attachSource(url: string) {
-        this.eventBus.tigger(EventConstants.SOURCE_ATTACHED, url)
+        this.eventBus.tigger(EventConstants.SOURCE_ATTACHED, url) // 再 dashParse中为 Mpd添加BaseUrl
         this.urlLoader.load({ url, responseType: 'text' }, "Manifest");
     }
 
     // segment加载完成的回调
-    onSegmentLoaded(data: ArrayBuffer[]) {
+    onSegmentLoaded(res: ConsumedSegment) {
+        this.firstCurrentRequest++;
+
+        // 第一组加载完毕 
+        if (this.firstCurrentRequest === 23) {
+            this.eventBus.tigger(EventConstants.FIRST_REQUEST_COMPLETED);
+        }
+
+        let data = res.data;
         let videoBuffer = data[0];
         let audioBuffer = data[1];
         console.log("加载Segment成功", videoBuffer, audioBuffer);
         this.buffer.push({
             video: videoBuffer,
-            audio: audioBuffer
+            audio: audioBuffer,
+            streamId: res.streamId
         })
         this.eventBus.tigger(EventConstants.BUFFER_APPENDED)
     }

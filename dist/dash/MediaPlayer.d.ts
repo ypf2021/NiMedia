@@ -1,4 +1,5 @@
 import { FactoryObject } from "../types/dash/Factory";
+import { ConsumedSegment } from "../types/dash/Stream";
 /**
  * @description 整个dash处理流程的入口类MediaPlayer, 类似于项目的中转中心，用于接收任务并且将任务分配给不同的解析器去完成
  */
@@ -11,6 +12,7 @@ declare class MediaPlayer {
     private streamController;
     private video;
     private buffer;
+    private firstCurrentRequest;
     constructor(ctx: FactoryObject, ...args: any[]);
     setup(): void;
     initializeEvent(): void;
@@ -21,7 +23,7 @@ declare class MediaPlayer {
      * @param url
      */
     attachSource(url: string): void;
-    onSegmentLoaded(data: ArrayBuffer[]): void;
+    onSegmentLoaded(res: ConsumedSegment): void;
     attachVideo(video: HTMLVideoElement): void;
 }
 declare const factory: import("../types/dash/Factory").FactoryFunction<MediaPlayer>;

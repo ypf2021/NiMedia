@@ -11,6 +11,9 @@ declare class StreamController {
     private eventBus;
     private urlLoader;
     private segmentRequestStruct;
+    private mediaIndex;
+    private streamId;
+    private firstRequestNumber;
     constructor(ctx: FactoryObject, ...args: any[]);
     setup(): void;
     initialEvent(): void;
@@ -37,10 +40,12 @@ declare class StreamController {
      * @memberof StreamController
      */
     generateAdaptationSetVideoOrAudioSegmentRequest(AdaptationSet: AdaptationSet, baseURL: string, i: number, j: number): AdaptationSetVideoSegmentRequest | AdaptationSetAudioSegmentRequest;
-    startStream(Mpd: Mpd): void;
+    getNumberOfMediaSegmentForPeriod(): any;
+    startStream(Mpd: Mpd): Promise<void>;
     loadInitialSegment(streamId: any): Promise<[any, any]>;
     loadMediaSegment(streamId: any, mediaId: any): Promise<[any, any]>;
     loadSegment(videoURL: any, audioURL: any): Promise<[any, any]>;
+    onSegmentConsumed(): Promise<void>;
 }
 declare const factory: import("../../types/dash/Factory").FactoryFunction<StreamController>;
 export default factory;

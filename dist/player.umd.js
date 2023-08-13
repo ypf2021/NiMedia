@@ -742,7 +742,10 @@
         MANIFEST_PARSE_COMPLETED: "manifestParseCompleted",
         SOURCE_ATTACHED: "sourceAttached",
         SEGEMTN_LOADED: "segmentLoaded",
-        BUFFER_APPENDED: "bufferAppended"
+        BUFFER_APPENDED: "bufferAppended",
+        SEGMENT_CONSUMED: "segmentConsumed",
+        MEDIA_PLAYBACK_FINISHED: "mediaPlaybackFinished",
+        FIRST_REQUEST_COMPLETED: "firstRequestCompleted"
     };
 
     // urlLoader 在发起xhr请求之前配置相关参数
@@ -1499,8 +1502,11 @@
             // 视频分辨率 音频采样率
             this.videoResolvePower = "1920*1080";
             this.audioResolvePower = "48000";
+            // 
+            this.mediaIndex = 0;
+            this.streamId = 0;
             this.config = ctx.factory;
-            console.log("StreamControllerConfig", this.config);
+            this.firstRequestNumber = this.config.num || 23;
             this.setup();
             this.initialEvent();
         }
@@ -1513,6 +1519,7 @@
         initialEvent() {
             // 当 Mpd 文件解析完毕之后，回来调用这个函数
             this.eventBus.on(EventConstants.MANIFEST_PARSE_COMPLETED, this.onManifestParseCompleted, this);
+            this.eventBus.on(EventConstants.SEGMENT_CONSUMED, this.onSegmentConsumed, this);
         }
         /**
          * @description 根据处理好的 mainifest 构建出 请求的结构体, 并进行segment的请求
@@ -1599,19 +1606,23 @@
             }
             return result;
         }
+        // 获取到当前 streamId 中有的总共的 mediaUrl的数量
+        getNumberOfMediaSegmentForPeriod() {
+            return this.segmentRequestStruct.request[this.streamId].VideoSegmentRequest[0].video[this.videoResolvePower][1].length;
+        }
         //初始化播放流，一次至多加载23个Segement过来
         startStream(Mpd) {
-            Mpd["Period_asArray"].forEach((p, pid) => __awaiter(this, void 0, void 0, function* () {
-                // 请求结构是按照索引顶的，就可以拿index进行请求
-                let ires = yield this.loadInitialSegment(pid);
-                this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, ires);
-                // 拿到media url 的数量
-                let number = this.segmentRequestStruct.request[pid].VideoSegmentRequest[0].video[this.videoResolvePower][1].length;
-                for (let i = 0; i < (number >= 23 ? 23 : number); i++) {
-                    let mres = yield this.loadMediaSegment(pid, i);
-                    this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, mres);
+            return __awaiter(this, void 0, void 0, function* () {
+                Mpd["Period_asArray"][this.streamId];
+                let ires = yield this.loadInitialSegment(this.streamId);
+                this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, { data: ires, streamId: this.streamId });
+                let number = this.getNumberOfMediaSegmentForPeriod();
+                for (let i = 0; i < (number >= this.firstRequestNumber ? this.firstRequestNumber : number); i++) {
+                    let mres = yield this.loadMediaSegment(this.streamId, this.mediaIndex);
+                    this.mediaIndex++;
+                    this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, { data: mres, streamId: this.streamId });
                 }
-            }));
+            });
         }
         //此处的streamId标识具体的Period对象
         loadInitialSegment(streamId) {
@@ -1632,6 +1643,31 @@
             let p1 = this.urlLoader.load({ url: videoURL, responseType: "arraybuffer" }, "Segment");
             let p2 = this.urlLoader.load({ url: audioURL, responseType: "arraybuffer" }, "Segment");
             return Promise.all([p1, p2]);
+        }
+        // 播放器消费一个Segment我就继续请求一个Segment
+        onSegmentConsumed() {
+            return __awaiter(this, void 0, void 0, function* () {
+                if (!this.segmentRequestStruct.request[this.streamId])
+                    return;
+                let total = this.getNumberOfMediaSegmentForPeriod();
+                // 如果当前Period全部请求完毕,就去请求另一个Peiod中的内容
+                if (this.mediaIndex >= total) {
+                    this.mediaIndex = 0;
+                    this.streamId++;
+                }
+                else {
+                    this.mediaIndex++;
+                }
+                // 再接着往下走时，如果没了 就播放完了
+                if (this.segmentRequestStruct.request[this.streamId] === undefined) {
+                    console.log("播放完毕");
+                    this.eventBus.tigger(EventConstants.MEDIA_PLAYBACK_FINISHED);
+                }
+                else {
+                    let mres = yield this.loadMediaSegment(this.streamId, this.mediaIndex);
+                    this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, { data: mres, streamId: this.streamId });
+                }
+            });
         }
     }
     const factory$3 = FactoryMaker.getClassFactory(StreamController);
@@ -1671,9 +1707,11 @@
     }
     const factory$2 = FactoryMaker.getSingleFactory(MediaPlayerBuffer);
 
+    // 负责将请求到的资源放入到 buffer中，该文件主要进行资源后续处理
     class MediaPlayerController {
         constructor(ctx, ...args) {
             this.config = {};
+            this.isFirstRequestCompleted = false;
             this.config = ctx.context;
             if (this.config.video) {
                 this.video = this.config.video;
@@ -1696,6 +1734,10 @@
                 this.appendSource();
                 // }
             }, this);
+            this.eventBus.on(EventConstants.FIRST_REQUEST_COMPLETED, () => {
+                this.isFirstRequestCompleted = true;
+            }, this);
+            this.eventBus.on(EventConstants.MEDIA_PLAYBACK_FINISHED, this.onMediaPlaybackFinished, this);
         }
         initPlayer() {
             this.video.src = window.URL.createObjectURL(this.mediaSource);
@@ -1721,15 +1763,25 @@
             // addSourceBuffer() 创建一个带有给定 MIME 类型的新的 SourceBuffer 并添加到 MediaSource 的 SourceBuffers 列表。
             this.videoSourceBuffer = this.mediaSource.addSourceBuffer('video/mp4; codecs="avc1.64001E"');
             this.audioSourceBuffer = this.mediaSource.addSourceBuffer('audio/mp4; codecs="mp4a.40.2"');
+            console.log("this.videoSourceBuffer.mode", this.videoSourceBuffer.mode);
             // updateend 在 SourceBuffer.appendBuffer() 或 SourceBuffer.remove() 结束后触发。这个事件在 update 后触发。
             this.videoSourceBuffer.addEventListener("updateend", this.onUpdateend.bind(this));
             this.audioSourceBuffer.addEventListener("updateend", this.onUpdateend.bind(this));
         }
         onUpdateend() {
             //  SourceBuffer.updating 一个布尔值，表示 SourceBuffer 当前是否正在更新——即当前是否正在进行, 正常情况下 updateend 触发时为 updating 为 false
-            // if (!this.videoSourceBuffer.updating && !this.audioSourceBuffer.updating) {
-            this.appendSource();
-            // }
+            if (!this.videoSourceBuffer.updating && !this.audioSourceBuffer.updating) {
+                // 第一组请求完成之后， 触发 SEGMENT_CONSUMED
+                if (this.isFirstRequestCompleted) {
+                    this.eventBus.tigger(EventConstants.SEGMENT_CONSUMED);
+                }
+                this.appendSource();
+            }
+        }
+        onMediaPlaybackFinished() {
+            this.mediaSource.endOfStream();
+            window.URL.revokeObjectURL(this.video.src);
+            console.log("播放流加载结束");
         }
     }
     const factory$1 = FactoryMaker.getClassFactory(MediaPlayerController);
@@ -1740,6 +1792,7 @@
     class MediaPlayer {
         constructor(ctx, ...args) {
             this.config = {};
+            this.firstCurrentRequest = 0;
             this.config = ctx.context;
             this.setup();
             this.initializeEvent();
@@ -1750,7 +1803,7 @@
             this.eventBus = EventBusFactory().getInstance();
             // ignoreRoot -> 忽略Document节点，从MPD开始作为根节点
             this.dashParser = DashParserFactory({ ignoreRoot: true }).getInstance();
-            this.streamController = factory$3().create();
+            this.streamController = factory$3({ num: 23 }).create();
             this.buffer = factory$2().getInstance(); // 在这里呗初次创建， 其他时候都是直接引用
         }
         initializeEvent() {
@@ -1774,17 +1827,24 @@
          * @param url
          */
         attachSource(url) {
-            this.eventBus.tigger(EventConstants.SOURCE_ATTACHED, url);
+            this.eventBus.tigger(EventConstants.SOURCE_ATTACHED, url); // 再 dashParse中为 Mpd添加BaseUrl
             this.urlLoader.load({ url, responseType: 'text' }, "Manifest");
         }
         // segment加载完成的回调
-        onSegmentLoaded(data) {
+        onSegmentLoaded(res) {
+            this.firstCurrentRequest++;
+            // 第一组加载完毕 
+            if (this.firstCurrentRequest === 23) {
+                this.eventBus.tigger(EventConstants.FIRST_REQUEST_COMPLETED);
+            }
+            let data = res.data;
             let videoBuffer = data[0];
             let audioBuffer = data[1];
             console.log("加载Segment成功", videoBuffer, audioBuffer);
             this.buffer.push({
                 video: videoBuffer,
-                audio: audioBuffer
+                audio: audioBuffer,
+                streamId: res.streamId
             });
             this.eventBus.tigger(EventConstants.BUFFER_APPENDED);
         }
