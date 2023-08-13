@@ -52,7 +52,6 @@ class EventBus {
 
     // 发布
     tigger(type: string, ...payload: any[]): void | never {
-        console.log(this.__events);
         if (this.__events[type]) {
             this.__events[type].forEach(event => {
                 event.cb.call(event.scope, ...payload);

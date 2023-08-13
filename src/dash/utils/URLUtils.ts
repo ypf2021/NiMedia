@@ -9,6 +9,13 @@ class URLUtils {
 
     setup() { }
 
+    /**
+     * @description url拼接功能
+     *
+     * @param {...string[]} urls
+     * @return {*}  {string}
+     * @memberof URLUtils
+     */
     resolve(...urls: string[]): string {
         let index = 0;
         let str = "";

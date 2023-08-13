@@ -727,7 +727,6 @@
         }
         // 发布
         tigger(type, ...payload) {
-            console.log(this.__events);
             if (this.__events[type]) {
                 this.__events[type].forEach(event => {
                     event.cb.call(event.scope, ...payload);
@@ -741,7 +740,8 @@
     const EventConstants = {
         MANIFEST_LOADED: "manifestLoaded",
         MANIFEST_PARSE_COMPLETED: "manifestParseCompleted",
-        SOURCE_ATTACHED: "sourceAttached"
+        SOURCE_ATTACHED: "sourceAttached",
+        SEGEMTN_LOADED: "segmentLoaded"
     };
 
     // urlLoader 在发起xhr请求之前配置相关参数
@@ -944,11 +944,12 @@
                 while (s.includes("@Number@")) {
                     s = s.replace("@Number@", `${i}`);
                 }
-                parent.mediaURL[i] = s;
+                // parent.mediaURL[i] = s; 这样的话mediaURL[]的第一项是空的
+                parent.mediaURL.push(s);
             }
         }
     }
-    const factory$4 = FactoryMaker.getSingleFactory(SegmentTemplateParser);
+    const factory$5 = FactoryMaker.getSingleFactory(SegmentTemplateParser);
 
     //  格式化播放时间工具
     function addZero(num) {
@@ -1025,6 +1026,13 @@
             this.config = ctx.contest;
         }
         setup() { }
+        /**
+         * @description url拼接功能
+         *
+         * @param {...string[]} urls
+         * @return {*}  {string}
+         * @memberof URLUtils
+         */
         resolve(...urls) {
             let index = 0;
             let str = "";
@@ -1059,7 +1067,7 @@
             return url;
         }
     }
-    const factory$3 = FactoryMaker.getSingleFactory(URLUtils);
+    const factory$4 = FactoryMaker.getSingleFactory(URLUtils);
 
     // DashParser 调用 new实例 的 parse方法 会返回 对应string的 节点解析数据
     class DashParser {
@@ -1070,9 +1078,9 @@
             this.initialEvent();
         }
         setup() {
-            this.segmentTemplateParser = factory$4().getInstance();
+            this.segmentTemplateParser = factory$5().getInstance();
             this.eventBus = EventBusFactory().getInstance();
-            this.URLUtils = factory$3().getInstance();
+            this.URLUtils = factory$4().getInstance();
         }
         initialEvent() {
             this.eventBus.on(EventConstants.SOURCE_ATTACHED, this.onSourceAttached, this);
@@ -1276,10 +1284,10 @@
          * @static
          * @param {(Mpd | Period | AdaptationSet)} Mpd
          * @memberof DashParser
-         * @description 给每一个Representation对象上挂载duration属性
+         * @description 给每一个Representation对象上挂载duration属性 此处的duration指的是Representation所属的Period所代表的媒体的总时长
          */
         setDurationForRepresentation(Mpd) {
-            //1. 如果只有一个Period
+            //1. 如果只有一个Period 就需要递归的把总时间传到每个元素上
             if (Mpd["Period_asArray"].length === 1) {
                 let totalDuration = this.getTotalDuration(Mpd);
                 Mpd["Period_asArray"].forEach(Period => {
@@ -1351,18 +1359,29 @@
             this.mpdURL = url; // 这里拿到的url是我们用来请求Mpd文件的url
         }
         /**
-        * @description 在 Representation_asArray 上添加分辨率 resolvePower
+        * @description 在 Representation_asArray 上添加分辨率 resolvePower 或者 音频采样率 audioSamplingRate
         * @param {Mpd} Mpd
         * @memberof DashParser
         */
         setResolvePowerForRepresentation(Mpd) {
             Mpd["Period_asArray"].forEach(Period => {
                 Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
-                    AdaptationSet["Representation_asArray"].forEach(Representation => {
-                        if (Representation.width && Representation.height) {
-                            Representation.resolvePower = `${Representation.width}*${Representation.height}`;
-                        }
-                    });
+                    if (AdaptationSet.mimeType === "video/mp4") {
+                        // 添加视频分辨率
+                        AdaptationSet["Representation_asArray"].forEach(Representation => {
+                            if (Representation.width && Representation.height) {
+                                Representation.resolvePower = `${Representation.width}*${Representation.height}`;
+                            }
+                        });
+                    }
+                    else if (AdaptationSet.mimeType === "audio/mp4") {
+                        // 音频采样率
+                        AdaptationSet["Representation_asArray"].forEach(Representation => {
+                            if (Representation.audioSamplingRate) {
+                                Representation.resolvePower = Representation.audioSamplingRate;
+                            }
+                        });
+                    }
                 });
             });
         }
@@ -1471,20 +1490,23 @@
             return baseURL; // 这是对每一层的url进行了一个拼接
         }
     }
-    const factory$2 = FactoryMaker.getSingleFactory(BaseURLParser);
+    const factory$3 = FactoryMaker.getSingleFactory(BaseURLParser);
 
-    // StreamController 
+    // StreamController  构建请求的结构体
     class StreamController {
         constructor(ctx, ...args) {
             this.config = {};
+            // 视频分辨率 音频采样率
+            this.videoResolvePower = "1920*1080";
+            this.audioResolvePower = "48000";
             this.config = ctx.factory;
             console.log("StreamControllerConfig", this.config);
             this.setup();
             this.initialEvent();
         }
         setup() {
-            this.baseURLParser = factory$2().getInstance();
-            this.URLUtils = factory$3().getInstance();
+            this.baseURLParser = factory$3().getInstance();
+            this.URLUtils = factory$4().getInstance();
             this.eventBus = EventBusFactory().getInstance();
             this.urlLoader = URLLoaderFactory().getInstance();
         }
@@ -1500,6 +1522,7 @@
         onManifestParseCompleted(mainifest) {
             this.segmentRequestStruct = this.generateSegmentRequestStruct(mainifest);
             console.log("segmentRequestStruct", this.segmentRequestStruct);
+            this.startStream(mainifest);
         }
         generateBaseURLPath(Mpd) {
             this.baseURLPath = this.baseURLParser.parseManifestForBaseURL(Mpd);
@@ -1539,7 +1562,7 @@
                     }
                     else if (AdaptationSet.mimeType === "audio/mp4") {
                         periodSegmentRequest.AudioSegmentRequest.push({
-                            lang: "en",
+                            lang: AdaptationSet.lang || "en",
                             audio: res
                         });
                     }
@@ -1576,16 +1599,54 @@
             }
             return result;
         }
+        startStream(Mpd) {
+            Mpd["Period_asArray"].forEach((p, pid) => __awaiter(this, void 0, void 0, function* () {
+                // 请求结构是按照索引顶的，就可以拿index进行请求
+                let ires = yield this.loadInitialSegment(pid);
+                this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, ires);
+                // 拿到media url 的数量
+                let number = this.segmentRequestStruct.request[pid].VideoSegmentRequest[0].video[this.videoResolvePower][1].length;
+                for (let i = 0; i < number; i++) {
+                    let mres = yield this.loadMediaSegment(pid, i);
+                    this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, mres);
+                }
+            }));
+        }
+        //此处的streamId标识具体的Period对象
+        loadInitialSegment(streamId) {
+            let stream = this.segmentRequestStruct.request[streamId];
+            // 先默认选择音视频的第一个版本
+            let audioRequest = stream.AudioSegmentRequest[0].audio;
+            let videoRequest = stream.VideoSegmentRequest[0].video;
+            return this.loadSegment(videoRequest[this.videoResolvePower][0], audioRequest[this.audioResolvePower][0]);
+        }
+        loadMediaSegment(streamId, mediaId) {
+            let stream = this.segmentRequestStruct.request[streamId];
+            // 莫仍选择音视频的第一个版本
+            let audioRequest = stream.AudioSegmentRequest[0].audio;
+            let videoRequest = stream.VideoSegmentRequest[0].video;
+            return this.loadSegment(videoRequest[this.videoResolvePower][1][mediaId], audioRequest[this.audioResolvePower][1][mediaId]);
+        }
         loadSegment(videoURL, audioURL) {
-            return __awaiter(this, void 0, void 0, function* () {
-                let p1 = this.urlLoader.load({ url: videoURL, responseType: "arraybuffer" }, "Segment");
-                let p2 = this.urlLoader.load({ url: audioURL, responseType: "arraybuffer" }, "Segment");
-                let p = yield Promise.all([p1, p2]);
-                console.log(p);
-            });
+            let p1 = this.urlLoader.load({ url: videoURL, responseType: "arraybuffer" }, "Segment");
+            let p2 = this.urlLoader.load({ url: audioURL, responseType: "arraybuffer" }, "Segment");
+            return Promise.all([p1, p2]);
         }
     }
-    const factory$1 = FactoryMaker.getClassFactory(StreamController);
+    const factory$2 = FactoryMaker.getClassFactory(StreamController);
+
+    class MediaPlayerController {
+        constructor(ctx, ...args) {
+            this.config = {};
+            this.config = ctx.context;
+            this.setup();
+        }
+        setup() {
+            // MediaSource() 是 MediaSource 的构造函数，返回一个没有分配 source buffers 新的 MediaSource 对象。
+            this.mediaSource = new MediaSource();
+        }
+    }
+    const factory$1 = FactoryMaker.getClassFactory(MediaPlayerController);
 
     /**
      * @description 整个dash处理流程的入口类MediaPlayer, 类似于项目的中转中心，用于接收任务并且将任务分配给不同的解析器去完成
@@ -1603,10 +1664,16 @@
             this.eventBus = EventBusFactory().getInstance();
             // ignoreRoot -> 忽略Document节点，从MPD开始作为根节点
             this.dashParser = DashParserFactory({ ignoreRoot: true }).getInstance();
-            this.streamController = factory$1().create();
+            this.streamController = factory$2().create();
+            this.mediaPlayerController = factory$1().create();
         }
         initializeEvent() {
             this.eventBus.on(EventConstants.MANIFEST_LOADED, this.onManifestLoaded, this);
+            this.eventBus.on(EventConstants.SEGEMTN_LOADED, this.onSegmentLoaded, this);
+        }
+        resetEvent() {
+            this.eventBus.off(EventConstants.MANIFEST_LOADED, this.onManifestLoaded, this);
+            this.eventBus.off(EventConstants.SEGEMTN_LOADED, this.onSegmentLoaded, this);
         }
         //MPD文件请求成功获得对应的data数据
         onManifestLoaded(data) {
@@ -1623,6 +1690,12 @@
         attachSource(url) {
             this.eventBus.tigger(EventConstants.SOURCE_ATTACHED, url);
             this.urlLoader.load({ url, responseType: 'text' }, "Manifest");
+        }
+        // segment加载完成的回调
+        onSegmentLoaded(data) {
+            let videoBuffer = data[0];
+            let audioBuffer = data[1];
+            console.log("加载Segment成功", videoBuffer, audioBuffer);
         }
     }
     const factory = FactoryMaker.getClassFactory(MediaPlayer);

@@ -114,3 +114,11 @@ Representation的Segments一般都采用1个Init Segment+多个普通Segment的�
 
 
 ![640?wx_fmt=jpeg](https://img-blog.csdnimg.cn/img_convert/84f6a1f937121ac957462be2ae0f796f.png)
+
+#### MediaSource
+MediaSource 是 Media Source Extensions API 表示媒体资源 HTMLMediaElement 对象的接口。MediaSource 对象可以附着在 HTMLMediaElement 在客户端进行播放。
+https://developer.mozilla.org/zh-CN/docs/Web/API/MediaSource
+
+MediaSource() 是 MediaSource 的构造函数，返回一个没有分配 source buffers 新的 MediaSource 对象。
+
+SourceBuffer 接口表示通过 MediaSource 对象传递到 HTMLMediaElement 并播放的媒体分块。它可以由一个或者多个媒体片段组成。

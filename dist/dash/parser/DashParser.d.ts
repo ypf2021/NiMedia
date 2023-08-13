@@ -44,7 +44,7 @@ declare class DashParser {
      * @static
      * @param {(Mpd | Period | AdaptationSet)} Mpd
      * @memberof DashParser
-     * @description 给每一个Representation对象上挂载duration属性
+     * @description 给每一个Representation对象上挂载duration属性 此处的duration指的是Representation所属的Period所代表的媒体的总时长
      */
     setDurationForRepresentation(Mpd: Mpd): void;
     /**
@@ -61,7 +61,7 @@ declare class DashParser {
     setSegmentDurationForRepresentation(Mpd: Mpd): void;
     onSourceAttached(url: string): void;
     /**
-    * @description 在 Representation_asArray 上添加分辨率 resolvePower
+    * @description 在 Representation_asArray 上添加分辨率 resolvePower 或者 音频采样率 audioSamplingRate
     * @param {Mpd} Mpd
     * @memberof DashParser
     */

@@ -150,7 +150,8 @@ class SegmentTemplateParser {
             while (s.includes("@Number@")) {
                 s = s.replace("@Number@", `${i}`);
             }
-            parent.mediaURL[i] = s;
+            // parent.mediaURL[i] = s; 这样的话mediaURL[]的第一项是空的
+            parent.mediaURL.push(s);
         }
 
     }

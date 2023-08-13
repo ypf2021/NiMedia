@@ -9,14 +9,18 @@ import { EventConstants } from "../event/EventConstants";
 import URLLoaderFactory, { URLLoader } from "../net/URLLoader";
 
 
-// StreamController 
+// StreamController  构建请求的结构体
 class StreamController {
     private config: FactoryObject = {};
     private baseURLParser: BaseURLParser;
     private baseURLPath: URLNode;
     private URLUtils: URLUtils;
+    // 视频分辨率 音频采样率
+    private videoResolvePower: string = "1920*1080";
+    private audioResolvePower: string = "48000";
     private eventBus: EventBus;
     private urlLoader: URLLoader;
+    //整个MPD文件所需要发送请求的结构体对象
     private segmentRequestStruct: MpdSegmentRequest;
 
     constructor(ctx: FactoryObject, ...args: any[]) {
@@ -46,6 +50,7 @@ class StreamController {
     onManifestParseCompleted(mainifest: Mpd) {
         this.segmentRequestStruct = this.generateSegmentRequestStruct(mainifest);
         console.log("segmentRequestStruct", this.segmentRequestStruct);
+        this.startStream(mainifest)
     }
 
     generateBaseURLPath(Mpd: Mpd) {
@@ -89,7 +94,7 @@ class StreamController {
                     })
                 } else if (AdaptationSet.mimeType === "audio/mp4") {
                     periodSegmentRequest.AudioSegmentRequest.push({
-                        lang: "en",
+                        lang: AdaptationSet.lang || "en",
                         audio: res
                     })
                 }
@@ -131,11 +136,41 @@ class StreamController {
         return result;
     }
 
-    async loadSegment(videoURL, audioURL) {
+    startStream(Mpd: Mpd) {
+        Mpd["Period_asArray"].forEach(async (p, pid) => {
+            // 请求结构是按照索引顶的，就可以拿index进行请求
+            let ires = await this.loadInitialSegment(pid);
+            this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, ires);
+            // 拿到media url 的数量
+            let number = this.segmentRequestStruct.request[pid].VideoSegmentRequest[0].video[this.videoResolvePower][1].length;
+            for (let i = 0; i < number; i++) {
+                let mres = await this.loadMediaSegment(pid, i);
+                this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, mres);
+            }
+        })
+    }
+
+    //此处的streamId标识具体的Period对象
+    loadInitialSegment(streamId) {
+        let stream = this.segmentRequestStruct.request[streamId]
+        // 先默认选择音视频的第一个版本
+        let audioRequest = stream.AudioSegmentRequest[0].audio;
+        let videoRequest = stream.VideoSegmentRequest[0].video;
+        return this.loadSegment(videoRequest[this.videoResolvePower][0], audioRequest[this.audioResolvePower][0])
+    }
+
+    loadMediaSegment(streamId, mediaId) {
+        let stream = this.segmentRequestStruct.request[streamId];
+        // 莫仍选择音视频的第一个版本
+        let audioRequest = stream.AudioSegmentRequest[0].audio;
+        let videoRequest = stream.VideoSegmentRequest[0].video;
+        return this.loadSegment(videoRequest[this.videoResolvePower][1][mediaId], audioRequest[this.audioResolvePower][1][mediaId])
+    }
+
+    loadSegment(videoURL, audioURL) {
         let p1 = this.urlLoader.load({ url: videoURL, responseType: "arraybuffer" }, "Segment") as Promise<any>;
         let p2 = this.urlLoader.load({ url: audioURL, responseType: "arraybuffer" }, "Segment") as Promise<any>;
-        let p = await Promise.all([p1, p2]);
-        console.log(p);
+        return Promise.all([p1, p2]);
     }
 
 

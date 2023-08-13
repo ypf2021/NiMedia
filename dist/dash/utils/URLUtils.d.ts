@@ -3,6 +3,13 @@ declare class URLUtils {
     private config;
     constructor(ctx: FactoryObject, ...args: any[]);
     setup(): void;
+    /**
+     * @description url拼接功能
+     *
+     * @param {...string[]} urls
+     * @return {*}  {string}
+     * @memberof URLUtils
+     */
     resolve(...urls: string[]): string;
     sliceLastURLPath(url: string): string;
 }

@@ -6,6 +6,8 @@ declare class StreamController {
     private baseURLParser;
     private baseURLPath;
     private URLUtils;
+    private videoResolvePower;
+    private audioResolvePower;
     private eventBus;
     private urlLoader;
     private segmentRequestStruct;
@@ -35,7 +37,10 @@ declare class StreamController {
      * @memberof StreamController
      */
     generateAdaptationSetVideoOrAudioSegmentRequest(AdaptationSet: AdaptationSet, baseURL: string, i: number, j: number): AdaptationSetVideoSegmentRequest | AdaptationSetAudioSegmentRequest;
-    loadSegment(videoURL: any, audioURL: any): Promise<void>;
+    startStream(Mpd: Mpd): void;
+    loadInitialSegment(streamId: any): Promise<[any, any]>;
+    loadMediaSegment(streamId: any, mediaId: any): Promise<[any, any]>;
+    loadSegment(videoURL: any, audioURL: any): Promise<[any, any]>;
 }
 declare const factory: import("../../types/dash/Factory").FactoryFunction<StreamController>;
 export default factory;
