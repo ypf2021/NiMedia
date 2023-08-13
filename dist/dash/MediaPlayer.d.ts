@@ -9,6 +9,7 @@ declare class MediaPlayer {
     private dashParser;
     private mediaPlayerController;
     private streamController;
+    private video;
     constructor(ctx: FactoryObject, ...args: any[]);
     setup(): void;
     initializeEvent(): void;

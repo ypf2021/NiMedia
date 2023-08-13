@@ -20,6 +20,7 @@ class MediaPlayer {
     private dashParser: DashParser
     private mediaPlayerController: MediaPlayerController;
     private streamController: StreamController;
+    private video: HTMLVideoElement;
 
     constructor(ctx: FactoryObject, ...args: any[]) {
         this.config = ctx.context;

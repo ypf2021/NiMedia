@@ -5,7 +5,10 @@
   "main": "./dist/player.umd.js",
   "scripts": {
     "build:rollup": "rollup -cw",
-    "build:tsc": "tsc"
+    "build:tsc": "tsc",
+    "test": "vitest",
+    "coverage": "vitest run --coverage"
+
   },
   "keywords": [
     "player",
@@ -27,7 +30,8 @@
     "rollup-plugin-dts": "^4.1.0",
     "rollup-plugin-postcss": "^4.0.2",
     "rollup-plugin-terser": "^7.0.2",
-    "rollup-plugin-typescript2": "^0.34.1"
+    "rollup-plugin-typescript2": "^0.34.1",
+    "vitest": "^0.34.1"
   },
   "author": "novani",
   "license": "ISC",
