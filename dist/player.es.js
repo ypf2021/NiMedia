@@ -1758,7 +1758,7 @@ class MediaPlayerController {
         // }, this)
         console.log("on MANIFEST_PARSE_COMPLETED");
         this.eventBus.on(EventConstants.MANIFEST_PARSE_COMPLETED, (manifest, duration, Mpd) => {
-            this.mediaDuration = duration;
+            this.mediaDuration = duration; // 目前的拿到的是全部的时间
             this.Mpd = Mpd;
             // MediaSource.readyState 只读
             // 返回一个代表当前 MediaSource 状态的枚举值，即当前是否未连接到媒体元素（closed），是否已连接并准备好接收 SourceBuffer 对象（open），或者是否已连接但已通过 MediaSource.endOfStream() 结束媒体流（ended）。

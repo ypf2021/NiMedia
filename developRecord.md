@@ -70,3 +70,10 @@
 由主文件触发 attachSource， 就会在 dashParse中为 Mpd添加BaseUrl，并且发起请求 获取 Mpd文件，获取到之后进行parse，转换为树状结构。解析完毕后触发 MANIFEST_PARSE_COMPLETED ，在streamController中进行请求结构体的解析，解析完毕之后，发起对initialUrl和MediaUrl的请求(startStream)。请求时，每请求一个资源都会 调用 MediaPlayer中的 SEGEMTN_LOADED 回调，记录第一组请求（），并将请求到的内容 添加到 buffer中 通过 BUFFER_APPENDED 回调，处理资源。同时没完成一组(23个)请求，就会调用consume回调， 目前是一口气加载23个，然后再请求一个，循环还没做好
 
 #### 8/14
+今日完成项：
+- 通过给 mediaSource设置duration属性，给video弄出总时间。
+- 注掉之前对每一组的规划
+- 修改在eventbus中遗留的bug
+- 通过streamId的标识（目前只有0），在mediaPlayerController，MeidaPlayer等部分添加streamId
+- 添加更具时间和streamId相关的处理utils类 TimeRangeUtils， 功能有，得出该streamId之前的时间，判断currentTime是否在该streamId的范围内，getSegmentAndStreamIndexByTime，等工具
+- 根据上面的 初步添加 当进度条发生跳转时触发
