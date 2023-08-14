@@ -219,13 +219,13 @@ class DashParser {
     // 获取播放的总时间
     getTotalDuration(Mpd: Mpd): number | never {
         let totalDuration = 0;
-        let MpdDuration = NaN;
+        let MpdDuration = -1;
         if (Mpd.mediaPresentationDuration) {
             MpdDuration = switchToSeconds(parseDuration(Mpd.mediaPresentationDuration));
             console.log("MpdDuration", MpdDuration)
         }
         // MPD文件的总时间要么是由Mpd标签上的availabilityStartTime指定，要么是每一个Period上的duration之和
-        if (isNaN(MpdDuration)) {
+        if (MpdDuration < 0) {
             Mpd.children.forEach(Period => {
                 if (Period.duration) {
                     totalDuration += switchToSeconds(parseDuration(Period.duration));

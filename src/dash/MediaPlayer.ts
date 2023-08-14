@@ -25,6 +25,7 @@ class MediaPlayer {
     private video: HTMLVideoElement;
     private buffer: MediaPlayerBuffer;
     private firstCurrentRequest: number = 0;
+    private duration: number = 0;
 
     constructor(ctx: FactoryObject, ...args: any[]) {
         this.config = ctx.context;
@@ -59,7 +60,8 @@ class MediaPlayer {
 
         // let res = this.streamController.generateSegmentRequestStruct(manifest as Mpd);
         // console.log("generateSegmentRequestStruct的返回结果 SegmentRequestStruct", res);
-        this.eventBus.tigger(EventConstants.MANIFEST_PARSE_COMPLETED, manifest)
+        this.duration = this.dashParser.getTotalDuration(manifest as Mpd)
+        this.eventBus.tigger(EventConstants.MANIFEST_PARSE_COMPLETED, manifest, this.duration)
     }
 
     /**
@@ -77,7 +79,7 @@ class MediaPlayer {
 
         // 第一组加载完毕 
         if (this.firstCurrentRequest === 23) {
-            this.eventBus.tigger(EventConstants.FIRST_REQUEST_COMPLETED);
+            // this.eventBus.tigger(EventConstants.FIRST_REQUEST_COMPLETED);
         }
 
         let data = res.data;
@@ -95,7 +97,7 @@ class MediaPlayer {
     public attachVideo(video: HTMLVideoElement) {
         console.log("MediaPlayer attachVideo", video)
         this.video = video;
-        this.mediaPlayerController = MediaPlayerControllerFactory({ video: video }).create();
+        this.mediaPlayerController = MediaPlayerControllerFactory({ video: video, duration: this.duration }).create();
     }
 
 }

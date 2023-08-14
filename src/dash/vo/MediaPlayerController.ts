@@ -15,6 +15,8 @@ class MediaPlayerController {
     private buffer: MediaPlayerBuffer;
     private eventBus: EventBus;
     private isFirstRequestCompleted: boolean = false;
+    private mediaDuration: number = 0;
+
 
     constructor(ctx: FactoryObject, ...args: any[]) {
         this.config = ctx.context;
@@ -47,12 +49,25 @@ class MediaPlayerController {
             this.isFirstRequestCompleted = true;
         }, this)
 
+        this.eventBus.on(EventConstants.MANIFEST_PARSE_COMPLETED, (manifest, duration) => {
+            this.mediaDuration = duration;
+
+            // MediaSource.readyState 只读
+            // 返回一个代表当前 MediaSource 状态的枚举值，即当前是否未连接到媒体元素（closed），是否已连接并准备好接收 SourceBuffer 对象（open），或者是否已连接但已通过 MediaSource.endOfStream() 结束媒体流（ended）。
+
+            if (this.mediaSource.readyState === "open") {
+
+                // MediaSource 接口的属性 duration 用来获取或者设置当前媒体展示的时长。
+                this.mediaSource.duration = duration
+            }
+        }, this)
+
         this.eventBus.on(EventConstants.MEDIA_PLAYBACK_FINISHED, this.onMediaPlaybackFinished, this)
     }
 
     initPlayer() {
         this.video.src = window.URL.createObjectURL(this.mediaSource)
-        this.video.pause();
+        // this.video.pause();
         this.mediaSource.addEventListener("sourceopen", this.onSourceopen.bind(this))
     }
 
@@ -75,6 +90,7 @@ class MediaPlayerController {
     }
 
     onSourceopen(e) {
+        this.mediaSource.duration = this.mediaDuration;
         // addSourceBuffer() 创建一个带有给定 MIME 类型的新的 SourceBuffer 并添加到 MediaSource 的 SourceBuffers 列表。
         this.videoSourceBuffer = this.mediaSource.addSourceBuffer('video/mp4; codecs="avc1.64001E"');
         this.audioSourceBuffer = this.mediaSource.addSourceBuffer('audio/mp4; codecs="mp4a.40.2"');
@@ -89,15 +105,16 @@ class MediaPlayerController {
         //  SourceBuffer.updating 一个布尔值，表示 SourceBuffer 当前是否正在更新——即当前是否正在进行, 正常情况下 updateend 触发时为 updating 为 false
         if (!this.videoSourceBuffer.updating && !this.audioSourceBuffer.updating) {
             // 第一组请求完成之后， 触发 SEGMENT_CONSUMED
-            if (this.isFirstRequestCompleted) {
-                this.eventBus.tigger(EventConstants.SEGMENT_CONSUMED)
-            }
+            // if (this.isFirstRequestCompleted) {
+            //     this.eventBus.tigger(EventConstants.SEGMENT_CONSUMED)
+            // }
 
             this.appendSource();
         }
     }
 
     onMediaPlaybackFinished() {
+        // MediaSource 接口的 endOfStream() 方法意味着流的结束。
         this.mediaSource.endOfStream();
         window.URL.revokeObjectURL(this.video.src);
         console.log("播放流加载结束")

@@ -64,6 +64,7 @@
 - 完善 StreamController ，并通过 MediaPlayerController 播放到video中
 - StreamController中拿出请求的结构体中的请求url，发起请求，请求完成后存放到buffer中，触发相关回调，SEGEMTN_LOADED，BUFFER_APPENDED
 - 在 MediaPlayerController 中 初始化 mediaSource，和sourceBuffer，作为video的播放资源 ， 由 BUFFER_APPENDE 触发回调，分别在视频和音的sourceBuffer中添加相关数据。
+- 初步编写视频资源按组循环请求
 
 ##### 梳理流程
 由主文件触发 attachSource， 就会在 dashParse中为 Mpd添加BaseUrl，并且发起请求 获取 Mpd文件，获取到之后进行parse，转换为树状结构。解析完毕后触发 MANIFEST_PARSE_COMPLETED ，在streamController中进行请求结构体的解析，解析完毕之后，发起对initialUrl和MediaUrl的请求(startStream)。请求时，每请求一个资源都会 调用 MediaPlayer中的 SEGEMTN_LOADED 回调，记录第一组请求（），并将请求到的内容 添加到 buffer中 通过 BUFFER_APPENDED 回调，处理资源。同时没完成一组(23个)请求，就会调用consume回调， 目前是一口气加载23个，然后再请求一个，循环还没做好

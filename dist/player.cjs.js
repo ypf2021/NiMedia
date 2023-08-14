@@ -1260,13 +1260,13 @@ class DashParser {
     // 获取播放的总时间
     getTotalDuration(Mpd) {
         let totalDuration = 0;
-        let MpdDuration = NaN;
+        let MpdDuration = -1;
         if (Mpd.mediaPresentationDuration) {
             MpdDuration = switchToSeconds(parseDuration(Mpd.mediaPresentationDuration));
             console.log("MpdDuration", MpdDuration);
         }
         // MPD文件的总时间要么是由Mpd标签上的availabilityStartTime指定，要么是每一个Period上的duration之和
-        if (isNaN(MpdDuration)) {
+        if (MpdDuration < 0) {
             Mpd.children.forEach(Period => {
                 if (Period.duration) {
                     totalDuration += switchToSeconds(parseDuration(Period.duration));
@@ -1710,6 +1710,7 @@ class MediaPlayerController {
     constructor(ctx, ...args) {
         this.config = {};
         this.isFirstRequestCompleted = false;
+        this.mediaDuration = 0;
         this.config = ctx.context;
         if (this.config.video) {
             this.video = this.config.video;
@@ -1735,11 +1736,20 @@ class MediaPlayerController {
         this.eventBus.on(EventConstants.FIRST_REQUEST_COMPLETED, () => {
             this.isFirstRequestCompleted = true;
         }, this);
+        this.eventBus.on(EventConstants.MANIFEST_PARSE_COMPLETED, (manifest, duration) => {
+            this.mediaDuration = duration;
+            // MediaSource.readyState 只读
+            // 返回一个代表当前 MediaSource 状态的枚举值，即当前是否未连接到媒体元素（closed），是否已连接并准备好接收 SourceBuffer 对象（open），或者是否已连接但已通过 MediaSource.endOfStream() 结束媒体流（ended）。
+            if (this.mediaSource.readyState === "open") {
+                // MediaSource 接口的属性 duration 用来获取或者设置当前媒体展示的时长。
+                this.mediaSource.duration = duration;
+            }
+        }, this);
         this.eventBus.on(EventConstants.MEDIA_PLAYBACK_FINISHED, this.onMediaPlaybackFinished, this);
     }
     initPlayer() {
         this.video.src = window.URL.createObjectURL(this.mediaSource);
-        this.video.pause();
+        // this.video.pause();
         this.mediaSource.addEventListener("sourceopen", this.onSourceopen.bind(this));
     }
     appendSource() {
@@ -1758,6 +1768,7 @@ class MediaPlayerController {
         this.audioSourceBuffer.appendBuffer(new Uint8Array(data));
     }
     onSourceopen(e) {
+        this.mediaSource.duration = this.mediaDuration;
         // addSourceBuffer() 创建一个带有给定 MIME 类型的新的 SourceBuffer 并添加到 MediaSource 的 SourceBuffers 列表。
         this.videoSourceBuffer = this.mediaSource.addSourceBuffer('video/mp4; codecs="avc1.64001E"');
         this.audioSourceBuffer = this.mediaSource.addSourceBuffer('audio/mp4; codecs="mp4a.40.2"');
@@ -1770,13 +1781,14 @@ class MediaPlayerController {
         //  SourceBuffer.updating 一个布尔值，表示 SourceBuffer 当前是否正在更新——即当前是否正在进行, 正常情况下 updateend 触发时为 updating 为 false
         if (!this.videoSourceBuffer.updating && !this.audioSourceBuffer.updating) {
             // 第一组请求完成之后， 触发 SEGMENT_CONSUMED
-            if (this.isFirstRequestCompleted) {
-                this.eventBus.tigger(EventConstants.SEGMENT_CONSUMED);
-            }
+            // if (this.isFirstRequestCompleted) {
+            //     this.eventBus.tigger(EventConstants.SEGMENT_CONSUMED)
+            // }
             this.appendSource();
         }
     }
     onMediaPlaybackFinished() {
+        // MediaSource 接口的 endOfStream() 方法意味着流的结束。
         this.mediaSource.endOfStream();
         window.URL.revokeObjectURL(this.video.src);
         console.log("播放流加载结束");
@@ -1791,6 +1803,7 @@ class MediaPlayer {
     constructor(ctx, ...args) {
         this.config = {};
         this.firstCurrentRequest = 0;
+        this.duration = 0;
         this.config = ctx.context;
         this.setup();
         this.initializeEvent();
@@ -1818,7 +1831,8 @@ class MediaPlayer {
         let manifest = this.dashParser.parse(data); // 在这里已经将 data已经将数据都处理好了
         // let res = this.streamController.generateSegmentRequestStruct(manifest as Mpd);
         // console.log("generateSegmentRequestStruct的返回结果 SegmentRequestStruct", res);
-        this.eventBus.tigger(EventConstants.MANIFEST_PARSE_COMPLETED, manifest);
+        this.duration = this.dashParser.getTotalDuration(manifest);
+        this.eventBus.tigger(EventConstants.MANIFEST_PARSE_COMPLETED, manifest, this.duration);
     }
     /**
      * @description 发送MPD文件的网络请求，我要做的事情很纯粹，具体实现细节由各个Loader去具体实现
@@ -1832,9 +1846,7 @@ class MediaPlayer {
     onSegmentLoaded(res) {
         this.firstCurrentRequest++;
         // 第一组加载完毕 
-        if (this.firstCurrentRequest === 23) {
-            this.eventBus.tigger(EventConstants.FIRST_REQUEST_COMPLETED);
-        }
+        if (this.firstCurrentRequest === 23) ;
         let data = res.data;
         let videoBuffer = data[0];
         let audioBuffer = data[1];
@@ -1849,7 +1861,7 @@ class MediaPlayer {
     attachVideo(video) {
         console.log("MediaPlayer attachVideo", video);
         this.video = video;
-        this.mediaPlayerController = factory$1({ video: video }).create();
+        this.mediaPlayerController = factory$1({ video: video, duration: this.duration }).create();
     }
 }
 const factory = FactoryMaker.getClassFactory(MediaPlayer);
