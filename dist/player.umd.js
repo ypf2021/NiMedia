@@ -705,7 +705,8 @@
             }
             if (this.__events[type].filter(event => {
                 return event.scope === scope && event.cb === listener;
-            })) {
+            }).length > 0) {
+                console.log(scope, listener);
                 throw new Error("请勿重复绑定监听器");
             }
             this.__events[type].push({
@@ -1283,6 +1284,21 @@
             }
             return totalDuration;
         }
+        getSegmentDuration(Mpd, streamId) {
+            let Period = Mpd["Period_asArray"][streamId];
+            if (!Period) {
+                throw new Error("传入的流不存在");
+            }
+            let segmentDuration = 0;
+            Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
+                AdaptationSet["Representation_asArray"].forEach(Representation => {
+                    if (Representation.segmentDuration) {
+                        segmentDuration = Number(Representation.segmentDuration);
+                    }
+                });
+            });
+            return segmentDuration;
+        }
         /**
          * @static
          * @param {(Mpd | Period | AdaptationSet)} Mpd
@@ -1505,7 +1521,7 @@
             // 
             this.mediaIndex = 0;
             this.streamId = 0;
-            this.config = ctx.factory;
+            this.config = ctx.context;
             this.firstRequestNumber = this.config.num || 23;
             this.setup();
             this.initialEvent();
@@ -1710,15 +1726,20 @@
     // 负责将请求到的资源放入到 buffer中，该文件主要进行资源后续处理
     class MediaPlayerController {
         constructor(ctx, ...args) {
+            // 私有属性
             this.config = {};
             this.isFirstRequestCompleted = false;
             this.mediaDuration = 0;
+            // private timeRangeUtils: TimeRangeUtils;
+            this.currentStreamId = 0;
             this.config = ctx.context;
             if (this.config.video) {
                 this.video = this.config.video;
             }
             this.setup();
+            console.log("initMediaPlayerController----initEvent");
             this.initEvent();
+            console.log("initMediaPlayerController----initPlayer");
             this.initPlayer();
         }
         setup() {
@@ -1729,30 +1750,62 @@
         }
         initEvent() {
             // 每加载一个 segment 并将数据 push到buffer中时触发
-            this.eventBus.on(EventConstants.BUFFER_APPENDED, () => {
-                // if (!this.videoSourceBuffer.updating && !this.audioSourceBuffer.updating) {
-                console.log("BUFFER_APPENDED");
-                this.appendSource();
-                // }
+            console.log("on BUFFER_APPENDED");
+            this.eventBus.on(EventConstants.BUFFER_APPENDED, (id) => {
+                if (!this.videoSourceBuffer.updating && !this.audioSourceBuffer.updating) {
+                    console.log("BUFFER_APPENDED");
+                    this.appendSource();
+                    this.currentStreamId = id;
+                }
             }, this);
-            this.eventBus.on(EventConstants.FIRST_REQUEST_COMPLETED, () => {
-                this.isFirstRequestCompleted = true;
-            }, this);
-            this.eventBus.on(EventConstants.MANIFEST_PARSE_COMPLETED, (manifest, duration) => {
+            // console.log("on FIRST_REQUEST_COMPLETED")
+            // this.eventBus.on(EventConstants.FIRST_REQUEST_COMPLETED, () => {
+            //     this.isFirstRequestCompleted = true;
+            // }, this)
+            console.log("on MANIFEST_PARSE_COMPLETED");
+            this.eventBus.on(EventConstants.MANIFEST_PARSE_COMPLETED, (manifest, duration, Mpd) => {
                 this.mediaDuration = duration;
+                this.Mpd = Mpd;
                 // MediaSource.readyState 只读
                 // 返回一个代表当前 MediaSource 状态的枚举值，即当前是否未连接到媒体元素（closed），是否已连接并准备好接收 SourceBuffer 对象（open），或者是否已连接但已通过 MediaSource.endOfStream() 结束媒体流（ended）。
                 if (this.mediaSource.readyState === "open") {
                     // MediaSource 接口的属性 duration 用来获取或者设置当前媒体展示的时长。
-                    this.mediaSource.duration = duration;
+                    // this.mediaSource.duration = duration
+                    this.setMediaSource();
                 }
             }, this);
+            console.log("on MEDIA_PLAYBACK_FINISHED");
             this.eventBus.on(EventConstants.MEDIA_PLAYBACK_FINISHED, this.onMediaPlaybackFinished, this);
         }
         initPlayer() {
+            console.log("initPlayer");
             this.video.src = window.URL.createObjectURL(this.mediaSource);
             // this.video.pause();
             this.mediaSource.addEventListener("sourceopen", this.onSourceopen.bind(this));
+            // 在视频播放中进行跳转（seek）
+            this.video.addEventListener("seeking", this.onMediaSeeking.bind(this));
+        }
+        /**
+         *  @description 配置MediaSource的相关选项和属性
+         */
+        setMediaSource() {
+            // 直接给 mediaSource 设置 duration，video使用这个 mediaSource 就可以直接设置好总时间
+            this.mediaSource.duration = this.mediaDuration;
+            // mediaSource.setLiveSeekableRange 函数用于设置 MSE 中直播媒体的可寻址范围。直播流通常是不断更新的，因此可寻址范围允许您指定可以随时进行跳转的时间段。
+            // 就是可以随时进行跳转的时间段。
+            this.mediaSource.setLiveSeekableRange(0, this.mediaDuration);
+        }
+        /**
+         * @description 当进度条发生跳转时触发
+         * @param { EventTarget} e
+         */
+        onMediaSeeking(e) {
+            // 加载新的视频片段：如果视频使用分段（segment）的方式进行传输，seek 事件可能会触发加载新的视频片段。应用程序可以根据 seek 的时间点请求相应的视频片段，并进行加载和解码，以确保播放器能够无缝地切换到指定时间点。
+            console.log("video seeking");
+            // let currentTime = this.video.currentTime;
+            // let [streamId,mediaId] = this.timeRangeUtils.
+            //     getSegmentAndStreamIndexByTime(this.currentStreamId,currentTime,this.Mpd);
+            // console.log(streamId,mediaId);
         }
         appendSource() {
             let data = this.buffer.top();
@@ -1770,11 +1823,11 @@
             this.audioSourceBuffer.appendBuffer(new Uint8Array(data));
         }
         onSourceopen(e) {
-            this.mediaSource.duration = this.mediaDuration;
+            console.log("onSourceopen");
+            this.setMediaSource();
             // addSourceBuffer() 创建一个带有给定 MIME 类型的新的 SourceBuffer 并添加到 MediaSource 的 SourceBuffers 列表。
             this.videoSourceBuffer = this.mediaSource.addSourceBuffer('video/mp4; codecs="avc1.64001E"');
             this.audioSourceBuffer = this.mediaSource.addSourceBuffer('audio/mp4; codecs="mp4a.40.2"');
-            console.log("this.videoSourceBuffer.mode", this.videoSourceBuffer.mode);
             // updateend 在 SourceBuffer.appendBuffer() 或 SourceBuffer.remove() 结束后触发。这个事件在 update 后触发。
             this.videoSourceBuffer.addEventListener("updateend", this.onUpdateend.bind(this));
             this.audioSourceBuffer.addEventListener("updateend", this.onUpdateend.bind(this));
@@ -1806,6 +1859,8 @@
             this.config = {};
             this.firstCurrentRequest = 0;
             this.duration = 0;
+            // 当前视频流的具体ID，也就是在请求第几个Period媒体片段
+            this.currentStreamId = 0;
             this.config = ctx.context;
             this.setup();
             this.initializeEvent();
@@ -1834,7 +1889,7 @@
             // let res = this.streamController.generateSegmentRequestStruct(manifest as Mpd);
             // console.log("generateSegmentRequestStruct的返回结果 SegmentRequestStruct", res);
             this.duration = this.dashParser.getTotalDuration(manifest);
-            this.eventBus.tigger(EventConstants.MANIFEST_PARSE_COMPLETED, manifest, this.duration);
+            this.eventBus.tigger(EventConstants.MANIFEST_PARSE_COMPLETED, manifest, this.duration, manifest);
         }
         /**
          * @description 发送MPD文件的网络请求，我要做的事情很纯粹，具体实现细节由各个Loader去具体实现
@@ -1850,15 +1905,18 @@
             // 第一组加载完毕 
             if (this.firstCurrentRequest === 23) ;
             let data = res.data;
+            console.log("onSegmentLoaded:res", res);
+            let id = res.streamId;
             let videoBuffer = data[0];
             let audioBuffer = data[1];
+            this.currentStreamId = id;
             console.log("加载Segment成功", videoBuffer, audioBuffer);
             this.buffer.push({
                 video: videoBuffer,
                 audio: audioBuffer,
                 streamId: res.streamId
             });
-            this.eventBus.tigger(EventConstants.BUFFER_APPENDED);
+            this.eventBus.tigger(EventConstants.BUFFER_APPENDED, this.currentStreamId);
         }
         attachVideo(video) {
             console.log("MediaPlayer attachVideo", video);

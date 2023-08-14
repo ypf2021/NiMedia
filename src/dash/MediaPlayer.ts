@@ -27,6 +27,9 @@ class MediaPlayer {
     private firstCurrentRequest: number = 0;
     private duration: number = 0;
 
+    // 当前视频流的具体ID，也就是在请求第几个Period媒体片段
+    private currentStreamId: number = 0;
+
     constructor(ctx: FactoryObject, ...args: any[]) {
         this.config = ctx.context;
         this.setup()
@@ -61,7 +64,7 @@ class MediaPlayer {
         // let res = this.streamController.generateSegmentRequestStruct(manifest as Mpd);
         // console.log("generateSegmentRequestStruct的返回结果 SegmentRequestStruct", res);
         this.duration = this.dashParser.getTotalDuration(manifest as Mpd)
-        this.eventBus.tigger(EventConstants.MANIFEST_PARSE_COMPLETED, manifest, this.duration)
+        this.eventBus.tigger(EventConstants.MANIFEST_PARSE_COMPLETED, manifest, this.duration, manifest)
     }
 
     /**
@@ -83,15 +86,18 @@ class MediaPlayer {
         }
 
         let data = res.data;
+        console.log("onSegmentLoaded:res", res)
+        let id = res.streamId
         let videoBuffer = data[0];
         let audioBuffer = data[1];
+        this.currentStreamId = id
         console.log("加载Segment成功", videoBuffer, audioBuffer);
         this.buffer.push({
             video: videoBuffer,
             audio: audioBuffer,
             streamId: res.streamId
         })
-        this.eventBus.tigger(EventConstants.BUFFER_APPENDED)
+        this.eventBus.tigger(EventConstants.BUFFER_APPENDED, this.currentStreamId)
     }
 
     public attachVideo(video: HTMLVideoElement) {

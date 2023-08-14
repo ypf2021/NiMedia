@@ -29,7 +29,7 @@ class StreamController {
     private firstRequestNumber: number;
 
     constructor(ctx: FactoryObject, ...args: any[]) {
-        this.config = ctx.factory;
+        this.config = ctx.context;
         this.firstRequestNumber = this.config.num || 23;
         this.setup();
         this.initialEvent();

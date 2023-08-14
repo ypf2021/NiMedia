@@ -40,6 +40,7 @@ declare class DashParser {
      */
     mergeNode(node: FactoryObject, compare: FactoryObject): void;
     getTotalDuration(Mpd: Mpd): number | never;
+    getSegmentDuration(Mpd: Mpd, streamId: number): number | never;
     /**
      * @static
      * @param {(Mpd | Period | AdaptationSet)} Mpd

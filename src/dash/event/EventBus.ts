@@ -28,7 +28,8 @@ class EventBus {
         }
         if (this.__events[type].filter(event => {
             return event.scope === scope && event.cb === listener;
-        })) {
+        }).length > 0) {
+            console.log(scope, listener)
             throw new Error("请勿重复绑定监听器");
         }
         this.__events[type].push({

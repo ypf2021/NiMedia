@@ -14,6 +14,7 @@ declare class MediaPlayer {
     private buffer;
     private firstCurrentRequest;
     private duration;
+    private currentStreamId;
     constructor(ctx: FactoryObject, ...args: any[]);
     setup(): void;
     initializeEvent(): void;
