@@ -1,4 +1,5 @@
 import { FactoryObject } from "../../types/dash/Factory";
+import { VideoBuffers } from "../../types/dash/Stream";
 declare class MediaPlayerController {
     private config;
     private video;
@@ -9,6 +10,7 @@ declare class MediaPlayerController {
     private eventBus;
     private isFirstRequestCompleted;
     private mediaDuration;
+    private timeRangeUtils;
     private currentStreamId;
     private Mpd;
     constructor(ctx: FactoryObject, ...args: any[]);
@@ -24,6 +26,7 @@ declare class MediaPlayerController {
      * @param { EventTarget} e
      */
     onMediaSeeking(e: any): void;
+    getVideoBuffered(video: HTMLVideoElement): VideoBuffers;
     appendSource(): void;
     appendVideoSource(data: ArrayBuffer): void;
     appendAudioSource(data: ArrayBuffer): void;

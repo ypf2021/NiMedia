@@ -11,9 +11,11 @@ declare class StreamController {
     private eventBus;
     private urlLoader;
     private segmentRequestStruct;
-    private mediaIndex;
+    private timeRangeUtils;
+    private mediaId;
     private streamId;
     private firstRequestNumber;
+    private Mpd;
     constructor(ctx: FactoryObject, ...args: any[]);
     setup(): void;
     initialEvent(): void;
@@ -43,9 +45,15 @@ declare class StreamController {
     getNumberOfMediaSegmentForPeriod(): any;
     startStream(Mpd: Mpd): Promise<void>;
     loadInitialSegment(streamId: any): Promise<[any, any]>;
-    loadMediaSegment(streamId: any, mediaId: any): Promise<[any, any]>;
+    loadMediaSegment(): Promise<[any, any]>;
     loadSegment(videoURL: any, audioURL: any): Promise<[any, any]>;
     onSegmentConsumed(): Promise<void>;
+    /**
+     * @description 只有在触发seek事件后,选到了没加载的地方才会触发此方法
+     * @param tuple
+     */
+    onSegmentRequest(tuple: [number, number]): Promise<void>;
+    abortAllXHR(): void;
 }
 declare const factory: import("../../types/dash/Factory").FactoryFunction<StreamController>;
 export default factory;

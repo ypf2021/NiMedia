@@ -48,12 +48,12 @@ class MediaPlayer {
 
     initializeEvent() {
         this.eventBus.on(EventConstants.MANIFEST_LOADED, this.onManifestLoaded, this)
-        this.eventBus.on(EventConstants.SEGEMTN_LOADED, this.onSegmentLoaded, this);
+        this.eventBus.on(EventConstants.SEGMENT_LOADED, this.onSegmentLoaded, this);
     }
 
     resetEvent() {
         this.eventBus.off(EventConstants.MANIFEST_LOADED, this.onManifestLoaded, this);
-        this.eventBus.off(EventConstants.SEGEMTN_LOADED, this.onSegmentLoaded, this);
+        this.eventBus.off(EventConstants.SEGMENT_LOADED, this.onSegmentLoaded, this);
     }
 
     //MPD文件请求成功获得对应的data数据
@@ -82,7 +82,7 @@ class MediaPlayer {
 
         // 第一组加载完毕 
         if (this.firstCurrentRequest === 23) {
-            // this.eventBus.tigger(EventConstants.FIRST_REQUEST_COMPLETED);
+            this.eventBus.tigger(EventConstants.FIRST_REQUEST_COMPLETED);
         }
 
         let data = res.data;

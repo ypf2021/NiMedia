@@ -7,7 +7,8 @@ import URLUtilsFactory, { URLUtils } from "../utils/URLUtils";
 import EventBusFactory, { EventBus } from "../event/EventBus";
 import { EventConstants } from "../event/EventConstants";
 import URLLoaderFactory, { URLLoader } from "../net/URLLoader";
-
+import TimeRangeUtilsFactory, { TimeRangeUtils } from "../utils/TimeRangeUtils";
+import { VideoBuffers } from "../../types/dash/Stream";
 
 // StreamController  构建请求的结构体
 class StreamController {
@@ -22,11 +23,12 @@ class StreamController {
     private urlLoader: URLLoader;
     //整个MPD文件所需要发送请求的结构体对象
     private segmentRequestStruct: MpdSegmentRequest;
-
+    private timeRangeUtils: TimeRangeUtils;
     // 
-    private mediaIndex: number = 0;
+    private mediaId: number = 0;
     private streamId: number = 0;
     private firstRequestNumber: number;
+    private Mpd: Mpd;
 
     constructor(ctx: FactoryObject, ...args: any[]) {
         this.config = ctx.context;
@@ -40,6 +42,7 @@ class StreamController {
         this.URLUtils = URLUtilsFactory().getInstance();
         this.eventBus = EventBusFactory().getInstance();
         this.urlLoader = URLLoaderFactory().getInstance();
+        this.timeRangeUtils = TimeRangeUtilsFactory().getInstance();
     }
 
     initialEvent() {
@@ -47,6 +50,9 @@ class StreamController {
         this.eventBus.on(EventConstants.MANIFEST_PARSE_COMPLETED, this.onManifestParseCompleted, this);
 
         this.eventBus.on(EventConstants.SEGMENT_CONSUMED, this.onSegmentConsumed, this)
+
+        // 当点击到没用加载的位置时触发请求
+        this.eventBus.on(EventConstants.SEGMENT_REQUEST, this.onSegmentRequest, this);
     }
 
     /**
@@ -57,6 +63,7 @@ class StreamController {
     onManifestParseCompleted(mainifest: Mpd) {
         this.segmentRequestStruct = this.generateSegmentRequestStruct(mainifest);
         console.log("segmentRequestStruct", this.segmentRequestStruct);
+        this.Mpd = mainifest
         this.startStream(mainifest)
     }
 
@@ -153,13 +160,13 @@ class StreamController {
         let p = Mpd["Period_asArray"][this.streamId];
         let ires = await this.loadInitialSegment(this.streamId)
 
-        this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, { data: ires, streamId: this.streamId })
+        this.eventBus.tigger(EventConstants.SEGMENT_LOADED, { data: ires, streamId: this.streamId })
         let number = this.getNumberOfMediaSegmentForPeriod();
 
         for (let i = 0; i < (number >= this.firstRequestNumber ? this.firstRequestNumber : number); i++) {
-            let mres = await this.loadMediaSegment(this.streamId, this.mediaIndex);
-            this.mediaIndex++;
-            this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, { data: mres, streamId: this.streamId });
+            let mres = await this.loadMediaSegment();
+            this.mediaId++;
+            this.eventBus.tigger(EventConstants.SEGMENT_LOADED, { data: mres, streamId: this.streamId, mediaId: this.mediaId });
         }
     }
 
@@ -172,12 +179,12 @@ class StreamController {
         return this.loadSegment(videoRequest[this.videoResolvePower][0], audioRequest[this.audioResolvePower][0])
     }
 
-    loadMediaSegment(streamId, mediaId) {
-        let stream = this.segmentRequestStruct.request[streamId];
+    loadMediaSegment() {
+        let stream = this.segmentRequestStruct.request[this.streamId];
         // 莫仍选择音视频的第一个版本
         let audioRequest = stream.AudioSegmentRequest[0].audio;
         let videoRequest = stream.VideoSegmentRequest[0].video;
-        return this.loadSegment(videoRequest[this.videoResolvePower][1][mediaId], audioRequest[this.audioResolvePower][1][mediaId])
+        return this.loadSegment(videoRequest[this.videoResolvePower][1][this.mediaId], audioRequest[this.audioResolvePower][1][this.mediaId])
     }
 
     loadSegment(videoURL, audioURL) {
@@ -191,11 +198,11 @@ class StreamController {
         if (!this.segmentRequestStruct.request[this.streamId]) return;
         let total = this.getNumberOfMediaSegmentForPeriod();
         // 如果当前Period全部请求完毕,就去请求另一个Peiod中的内容
-        if (this.mediaIndex >= total) {
-            this.mediaIndex = 0;
+        if (this.mediaId >= total) {
+            this.mediaId = 0;
             this.streamId++;
         } else {
-            this.mediaIndex++;
+            this.mediaId++;
         }
 
         // 再接着往下走时，如果没了 就播放完了
@@ -203,12 +210,28 @@ class StreamController {
             console.log("播放完毕")
             this.eventBus.tigger(EventConstants.MEDIA_PLAYBACK_FINISHED);
         } else {
-            let mres = await this.loadMediaSegment(this.streamId, this.mediaIndex);
-            this.eventBus.tigger(EventConstants.SEGEMTN_LOADED, { data: mres, streamId: this.streamId });
+            let mres = await this.loadMediaSegment();
+            this.eventBus.tigger(EventConstants.SEGMENT_LOADED, { data: mres, streamId: this.streamId });
         }
-
-
     }
+
+    /**
+     * @description 只有在触发seek事件后,选到了没加载的地方才会触发此方法
+     * @param tuple 
+     */
+    async onSegmentRequest(tuple: [number, number]) {
+        this.abortAllXHR();
+        let [streamId, mediaId] = tuple;
+        this.streamId = streamId;
+        this.mediaId = mediaId;
+        let mres = await this.loadMediaSegment()
+        this.eventBus.tigger(EventConstants.SEGMENT_LOADED, { data: mres, streamId: this.streamId, mediaId: mediaId })
+    }
+
+    abortAllXHR() {
+        this.urlLoader.abortAllXHR();
+    }
+
 }
 
 const factory = FactoryMaker.getClassFactory(StreamController);

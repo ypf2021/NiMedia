@@ -77,3 +77,9 @@
 - 通过streamId的标识（目前只有0），在mediaPlayerController，MeidaPlayer等部分添加streamId
 - 添加更具时间和streamId相关的处理utils类 TimeRangeUtils， 功能有，得出该streamId之前的时间，判断currentTime是否在该streamId的范围内，getSegmentAndStreamIndexByTime，等工具
 - 根据上面的 初步添加 当进度条发生跳转时触发
+
+#### 8/15
+今日完成项：
+- 以前的资源请求只有第一个Segment的部分。这次的更新中，借助 TileRangeUtils 中根据时间获得streamId和mediaId的功能，在点击切换到没有加载的部分的时候，发起针对这个部分的请求，获取部分资源（还没有接上按组请求）
+- 上面功能对应的监听包括，SEGMENT_REQUEST 和 addEventListener（seek）
+- 并且优化了请求的部分内容，设立一个请求的列表，给其添加终止，和清除功能。终止是在点击没有请求的部分时，将原来的请求删掉

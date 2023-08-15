@@ -5,6 +5,8 @@ import { Mpd } from "../../types/dash/MpdFile";
 import EventBusFactory, { EventBus } from "../event/EventBus";
 import { EventConstants } from "../event/EventConstants";
 import MediaPlayerBufferFactory, { MediaPlayerBuffer } from "./MediaPlayerBuffer";
+import { VideoBuffers } from "../../types/dash/Stream";
+import TimeRangeUtilsFactory, { TimeRangeUtils } from "../utils/TimeRangeUtils";
 
 // 负责将请求到的资源放入到 buffer中，该文件主要进行资源后续处理
 class MediaPlayerController {
@@ -20,7 +22,7 @@ class MediaPlayerController {
     private eventBus: EventBus;
     private isFirstRequestCompleted: boolean = false;
     private mediaDuration: number = 0;
-    // private timeRangeUtils: TimeRangeUtils;
+    private timeRangeUtils: TimeRangeUtils;
     private currentStreamId: number = 0;
     private Mpd: Mpd;
 
@@ -43,6 +45,7 @@ class MediaPlayerController {
         this.mediaSource = new MediaSource();
         this.buffer = MediaPlayerBufferFactory().getInstance();
         this.eventBus = EventBusFactory().getInstance();
+        this.timeRangeUtils = TimeRangeUtilsFactory().getInstance();
     }
 
     initEvent() {
@@ -90,7 +93,6 @@ class MediaPlayerController {
         this.video.addEventListener("seeking", this.onMediaSeeking.bind(this));
     }
 
-
     /**
      *  @description 配置MediaSource的相关选项和属性
      */
@@ -103,7 +105,6 @@ class MediaPlayerController {
         this.mediaSource.setLiveSeekableRange(0, this.mediaDuration);
     }
 
-
     /**
      * @description 当进度条发生跳转时触发
      * @param { EventTarget} e 
@@ -111,12 +112,32 @@ class MediaPlayerController {
     onMediaSeeking(e) {
         // 加载新的视频片段：如果视频使用分段（segment）的方式进行传输，seek 事件可能会触发加载新的视频片段。应用程序可以根据 seek 的时间点请求相应的视频片段，并进行加载和解码，以确保播放器能够无缝地切换到指定时间点。
         console.log("video seeking")
-        // let currentTime = this.video.currentTime;
-        // let [streamId,mediaId] = this.timeRangeUtils.
-        //     getSegmentAndStreamIndexByTime(this.currentStreamId,currentTime,this.Mpd);
-        // console.log(streamId,mediaId);
+        let currentTime = this.video.currentTime;
+        let [streamId, mediaId] = this.timeRangeUtils.
+            getSegmentAndStreamIndexByTime(this.currentStreamId, currentTime, this.Mpd);
+        console.log(streamId, mediaId);
+        let ranges = this.getVideoBuffered(this.video);
+        if (!this.timeRangeUtils.inVideoBuffered(currentTime, ranges)) {
+            console.log("超出缓存范围")
+            this.buffer.clear();
+
+            // 当点击的位置超出范围是，就调用SEGMENT_REQUEST，去请求对应部分的内容
+            this.eventBus.tigger(EventConstants.SEGMENT_REQUEST, [streamId, mediaId]);
+        } else {
+            console.log("在缓存范围之内")
+        }
     }
 
+    getVideoBuffered(video: HTMLVideoElement): VideoBuffers {
+        let buffer = this.video.buffered;
+        let res: VideoBuffers = [];
+        for (let i = 0; i < buffer.length; i++) {
+            let start = buffer.start(i);
+            let end = buffer.end(i);
+            res.push({ start, end })
+        }
+        return res;
+    }
 
     appendSource() {
         let data = this.buffer.top();
@@ -138,7 +159,7 @@ class MediaPlayerController {
 
     onSourceopen(e) {
         console.log("onSourceopen")
-        this.setMediaSource();
+        // this.setMediaSource();
         // addSourceBuffer() 创建一个带有给定 MIME 类型的新的 SourceBuffer 并添加到 MediaSource 的 SourceBuffers 列表。
         this.videoSourceBuffer = this.mediaSource.addSourceBuffer('video/mp4; codecs="avc1.64001E"');
         this.audioSourceBuffer = this.mediaSource.addSourceBuffer('audio/mp4; codecs="mp4a.40.2"');
@@ -152,9 +173,10 @@ class MediaPlayerController {
         //  SourceBuffer.updating 一个布尔值，表示 SourceBuffer 当前是否正在更新——即当前是否正在进行, 正常情况下 updateend 触发时为 updating 为 false
         if (!this.videoSourceBuffer.updating && !this.audioSourceBuffer.updating) {
             // 第一组请求完成之后， 触发 SEGMENT_CONSUMED
-            // if (this.isFirstRequestCompleted) {
-            //     this.eventBus.tigger(EventConstants.SEGMENT_CONSUMED)
-            // }
+            if (this.isFirstRequestCompleted) {
+                let ranges = this.getVideoBuffered(this.video)
+                this.eventBus.tigger(EventConstants.SEGMENT_CONSUMED, ranges)
+            }
 
             this.appendSource();
         }
@@ -162,7 +184,7 @@ class MediaPlayerController {
 
     onMediaPlaybackFinished() {
         // MediaSource 接口的 endOfStream() 方法意味着流的结束。
-        this.mediaSource.endOfStream();
+        // this.mediaSource.endOfStream();
         window.URL.revokeObjectURL(this.video.src);
         console.log("播放流加载结束")
     }

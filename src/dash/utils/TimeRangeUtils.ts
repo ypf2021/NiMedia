@@ -2,6 +2,8 @@ import { FactoryFunction, FactoryObject } from "../../types/dash/Factory";
 import { Mpd } from "../../types/dash/MpdFile";
 import FactoryMaker from "../FactoryMaker";
 import DashParserFactory, { DashParser } from "../parser/DashParser"
+import { VideoBuffers } from "../../types/dash/Stream";
+
 
 class TimeRangeUtils {
     private config: FactoryObject = {};
@@ -46,11 +48,9 @@ class TimeRangeUtils {
     getSegmentAndStreamIndexByTime(streamId: number, currentTime: number, Mpd: Mpd):
         [number, number] | never {
         if (this.inSpecificStreamRange(streamId, currentTime, Mpd)) {
-            console.log(111)
             let segmentDuration = this.dashParse.getSegmentDuration(Mpd, streamId);
-            console.log(segmentDuration)
             let index = Math.floor(currentTime / segmentDuration);
-            return [index, streamId];
+            return [streamId, index];
         } else {
             let totalTime = this.dashParse.getTotalDuration(Mpd);
             if (currentTime > totalTime) {
@@ -63,12 +63,27 @@ class TimeRangeUtils {
                 if (sum > currentTime) {
                     let segmentDuration = this.dashParse.getSegmentDuration(Mpd, i);
                     let index = Math.floor(currentTime / segmentDuration);
-                    return [index, i];
+                    return [i, index];
                 }
             }
         }
     }
 
+    getOffestTimeOfMediaSegment(streamId: number, mediaId: number, Mpd: Mpd): number {
+        let beforeTime = this.getSummaryTimeBeforeStream(streamId, Mpd);
+        let segmentDuration = this.dashParse.getSegmentDuration(Mpd, streamId);
+        return beforeTime + segmentDuration * (mediaId + 1);
+    }
 
-
+    // 判断 time 是否在 ranges 内部
+    inVideoBuffered(time: number, ranges: VideoBuffers): boolean {
+        for (let range of ranges) {
+            if (time >= range.start && time <= range.end) return true;
+        }
+        return false;
+    }
 }
+
+const factory = FactoryMaker.getSingleFactory(TimeRangeUtils);
+export default factory;
+export { TimeRangeUtils };

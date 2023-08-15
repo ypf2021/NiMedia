@@ -11,6 +11,7 @@ class URLLoader {
     private config: FactoryObject = {};
     private xhrLoader: XHRLoader;
     private eventBus: EventBus
+    private xhrArray: HTTPRequest[] = []
     constructor(ctx: FactoryObject, ...args: any[]) {
         this.config = ctx.context;
         this.setup();
@@ -37,6 +38,7 @@ class URLLoader {
         //一个HTTPRequest对象才对应一个请求
         let request = new HTTPRequest(config)
         let ctx = this
+        this.xhrArray.push(request);
 
         if (type === "Manifest") {
             ctx._loadManifest({
@@ -48,7 +50,13 @@ class URLLoader {
                     ctx.eventBus.tigger(EventConstants.MANIFEST_LOADED, data)
                 },
                 error: function (error) {
-                    console.log(this, error)
+                    console.log(error)
+                },
+                load: function () {
+                    ctx.deleteRequestFromArray(request, ctx.xhrArray);
+                },
+                abort: function () {
+                    ctx.deleteRequestFromArray(request, ctx.xhrArray);
                 }
             })
         } else if (type === "Segment") {
@@ -60,14 +68,35 @@ class URLLoader {
                     },
                     error: function (error) {
                         reject(error);
+                    },
+                    load: function () {
+                        ctx.deleteRequestFromArray(request, ctx.xhrArray);
+                    },
+                    abort: function () {
+                        ctx.deleteRequestFromArray(request, ctx.xhrArray);
                     }
                 })
             })
         }
-
-
-
     }
+
+    // abort全部请求
+    abortAllXHR() {
+        this.xhrArray.forEach(request => {
+            if (request.xhr) {
+                request.xhr.abort();
+            }
+        })
+    }
+
+    // 删掉某个请求
+    deleteRequestFromArray(request: HTTPRequest, xhrArray: HTTPRequest[]) {
+        let index = xhrArray.indexOf(request);
+        if (index !== -1) {
+            xhrArray.splice(index, 1);
+        }
+    }
+
 }
 
 const URLLoaderFactory = FactoryMaker.getSingleFactory(URLLoader);
