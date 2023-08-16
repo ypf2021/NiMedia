@@ -838,6 +838,77 @@ var DomNodeTypes;
     DomNodeTypes[DomNodeTypes["DOCUMENT_NODE"] = 9] = "DOCUMENT_NODE";
 })(DomNodeTypes || (DomNodeTypes = {}));
 
+//  格式化播放时间工具
+function addZero(num) {
+    return num > 9 ? "" + num : "0" + num;
+}
+function formatTime(seconds) {
+    seconds = Math.floor(seconds);
+    let minute = Math.floor(seconds / 60);
+    let second = seconds % 60;
+    return addZero(minute) + ":" + addZero(second);
+}
+// 将 Time 类型的时间转换为秒
+function switchToSeconds(time) {
+    if (!time) {
+        return null;
+    }
+    let sum = 0;
+    if (time.hours)
+        sum += time.hours * 3600;
+    if (time.minutes)
+        sum += time.minutes * 60;
+    if (time.seconds)
+        sum += time.seconds;
+    return sum;
+}
+// 解析MPD文件的时间字符串
+// Period 的 start 和 duration 属性使用了 NPT 格式表示该期间的开始时间和持续时间，即 PT0S 和 PT60S
+function parseDuration(pt) {
+    // NPT 格式的字符串以 PT 开头，后面跟着一个时间段的表示，例如 PT60S 表示 60 秒的时间段。时间段可以包含以下几个部分：
+    // H: 表示小时。
+    // M: 表示分钟。
+    // S: 表示秒。
+    // F: 表示帧数。
+    // T: 表示时间段的开始时间。
+    if (!pt) {
+        return null;
+    }
+    console.log(pt);
+    let hours = 0, minutes = 0, seconds = 0;
+    for (let i = pt.length - 1; i >= 0; i--) {
+        if (pt[i] === "S") {
+            let j = i;
+            while (pt[i] !== "M" && pt[i] !== "H" && pt[i] !== "T") {
+                i--;
+            }
+            i += 1;
+            seconds = parseInt(pt.slice(i, j));
+        }
+        else if (pt[i] === "M") {
+            let j = i;
+            while (pt[i] !== "H" && pt[i] !== "T") {
+                i--;
+            }
+            i += 1;
+            minutes = parseInt(pt.slice(i, j));
+        }
+        else if (pt[i] === "H") {
+            let j = i;
+            while (pt[i] !== "T") {
+                i--;
+            }
+            i += 1;
+            hours = parseInt(pt.slice(i, j));
+        }
+    }
+    return {
+        hours,
+        minutes,
+        seconds,
+    };
+}
+
 /**
  * @description 该类仅用于处理MPD文件中具有SegmentTemplate此种情况,
  */
@@ -859,33 +930,6 @@ class SegmentTemplateParser {
         // this.setSegmentDurationForRepresentation(Mpd as Mpd);
         this.parseNodeSegmentTemplate(Mpd);
     }
-    /**
-     * @param {Mpd} Mpd
-     * @memberof SegmentTemplateParser
-     * @description 设置 Representation_asArray 的 segmentDuration 一般为 (duration / timescale)
-     */
-    // setSegmentDurationForRepresentation(Mpd: Mpd) {
-    //     let maxSegmentDuration = switchToSeconds(parseDuration(Mpd.maxSegmentDuration));
-    //     Mpd["Period_asArray"].forEach(Period => {
-    //         Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
-    //             AdaptationSet["Representation_asArray"].forEach(Representation => {
-    //                 if (Representation["SegmentTemplate"]) {
-    //                     if ((Representation["SegmentTemplate"] as SegmentTemplate).duration) {
-    //                         let duration = (Representation["SegmentTemplate"] as SegmentTemplate).duration
-    //                         let timescale = (Representation["SegmentTemplate"] as SegmentTemplate).timescale || 1;
-    //                         Representation.segmentDuration = (duration / timescale).toFixed(1);
-    //                     } else {
-    //                         if (maxSegmentDuration) {
-    //                             Representation.segmentDuration = maxSegmentDuration;
-    //                         } else {
-    //                             throw new Error("MPD文件格式错误")
-    //                         }
-    //                     }
-    //                 }
-    //             })
-    //         })
-    //     })
-    // }
     /**
      * @param {Mpd} Mpd
      * @memberof SegmentTemplateParser
@@ -944,18 +988,22 @@ class SegmentTemplateParser {
      * @description 通过正则和替换 得出 MediaURL
      */
     generateMediaURL(SegmentTemplate, parent) {
-        let templateReg = /\$(.+?)\$/ig;
+        let templateReg = /\$(.+?)\$/ig; //这个正则表达式的意思是匹配字符串中所有以"$"开头和结束的部分
         let media = SegmentTemplate.media;
-        let r;
+        let r; // exec返回值为数组 
+        // 索引 0 包含匹配的字符串。
+        // 索引 1 开始包含第一个捕获组（如果有的话）的匹配结果。
+        // 索引 2 开始包含第二个捕获组的匹配结果，以此类推。
         let formatArray = new Array();
         let replaceArray = new Array();
         parent.mediaURL = new Array();
+        // test() 方法执行一个检索，用来查看正则表达式与指定的字符串是否匹配。返回 true 或 false。
         if (templateReg.test(media)) {
             templateReg.lastIndex = 0;
             while (r = templateReg.exec(media)) {
-                formatArray.push(r[0]);
-                // console.log("r", r, formatArray)
-                if (r[1] === "Number") {
+                console.log(r);
+                formatArray.push(r[0]); // "$Number$"
+                if (r[1] === "Number") { //如果 $ xxx $ 包含的内容为 number就换为 @number@
                     r[1] = "@Number@";
                 }
                 else if (r[1] === "RepresentationID") {
@@ -966,11 +1014,18 @@ class SegmentTemplateParser {
         }
         let index = 0;
         while (index < replaceArray.length) {
+            // 把 $ 的部分换为 @
             media = media.replace(formatArray[index], replaceArray[index]);
             index++;
         }
+        // 有的mpd文件的duration是 秒，有的是 NPT
+        if (typeof parent.duration === "string" && parent.duration.startsWith("PT")) {
+            parent.duration = switchToSeconds(parseDuration(parent.duration));
+        }
+        console.log("parent.duration", parent.duration, "parent.segmentDuration", parent.segmentDuration);
         for (let i = 1; i <= Math.ceil(parent.duration / parent.segmentDuration); i++) {
             let s = media;
+            console.log("medias", s);
             while (s.includes("@Number@")) {
                 s = s.replace("@Number@", `${i}`);
             }
@@ -980,76 +1035,6 @@ class SegmentTemplateParser {
     }
 }
 const factory$7 = FactoryMaker.getSingleFactory(SegmentTemplateParser);
-
-//  格式化播放时间工具
-function addZero(num) {
-    return num > 9 ? "" + num : "0" + num;
-}
-function formatTime(seconds) {
-    seconds = Math.floor(seconds);
-    let minute = Math.floor(seconds / 60);
-    let second = seconds % 60;
-    return addZero(minute) + ":" + addZero(second);
-}
-// 将 Time 类型的时间转换为秒
-function switchToSeconds(time) {
-    if (!time) {
-        return null;
-    }
-    let sum = 0;
-    if (time.hours)
-        sum += time.hours * 3600;
-    if (time.minutes)
-        sum += time.minutes * 60;
-    if (time.seconds)
-        sum += time.seconds;
-    return sum;
-}
-// 解析MPD文件的时间字符串
-// Period 的 start 和 duration 属性使用了 NPT 格式表示该期间的开始时间和持续时间，即 PT0S 和 PT60S
-function parseDuration(pt) {
-    // NPT 格式的字符串以 PT 开头，后面跟着一个时间段的表示，例如 PT60S 表示 60 秒的时间段。时间段可以包含以下几个部分：
-    // H: 表示小时。
-    // M: 表示分钟。
-    // S: 表示秒。
-    // F: 表示帧数。
-    // T: 表示时间段的开始时间。
-    // if (!pt) {
-    //     return null
-    // }
-    let hours = 0, minutes = 0, seconds = 0;
-    for (let i = pt.length - 1; i >= 0; i--) {
-        if (pt[i] === "S") {
-            let j = i;
-            while (pt[i] !== "M" && pt[i] !== "H" && pt[i] !== "T") {
-                i--;
-            }
-            i += 1;
-            seconds = parseInt(pt.slice(i, j));
-        }
-        else if (pt[i] === "M") {
-            let j = i;
-            while (pt[i] !== "H" && pt[i] !== "T") {
-                i--;
-            }
-            i += 1;
-            minutes = parseInt(pt.slice(i, j));
-        }
-        else if (pt[i] === "H") {
-            let j = i;
-            while (pt[i] !== "T") {
-                i--;
-            }
-            i += 1;
-            hours = parseInt(pt.slice(i, j));
-        }
-    }
-    return {
-        hours,
-        minutes,
-        seconds,
-    };
-}
 
 class URLUtils {
     constructor(ctx, ...args) {
@@ -1213,6 +1198,9 @@ class DashParser {
             });
             // 2.解析node上挂载的属性
             for (let prop of node.attributes) {
+                if (prop.name === "media") {
+                    console.log(prop);
+                }
                 result[prop.name] = prop.value;
             }
             return result; //最终返回的result中有tag 有nodename组成的数组，有属性
@@ -1290,6 +1278,7 @@ class DashParser {
         let totalDuration = 0;
         let MpdDuration = -1;
         if (Mpd.mediaPresentationDuration) {
+            console.log(Mpd);
             MpdDuration = switchToSeconds(parseDuration(Mpd.mediaPresentationDuration));
             console.log("MpdDuration", MpdDuration);
         }
@@ -1410,15 +1399,17 @@ class DashParser {
     setResolvePowerForRepresentation(Mpd) {
         Mpd["Period_asArray"].forEach(Period => {
             Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
-                if (AdaptationSet.mimeType === "video/mp4") {
+                // 
+                if (AdaptationSet.mimeType === "video/mp4" || AdaptationSet["Representation_asArray"][0].mimeType === "video/mp4") {
                     // 添加视频分辨率
+                    console.log("设置分辨率");
                     AdaptationSet["Representation_asArray"].forEach(Representation => {
                         if (Representation.width && Representation.height) {
                             Representation.resolvePower = `${Representation.width}*${Representation.height}`;
                         }
                     });
                 }
-                else if (AdaptationSet.mimeType === "audio/mp4") {
+                else if (AdaptationSet.mimeType === "audio/mp4" || AdaptationSet["Representation_asArray"][0].mimeType === "audio/mp4") {
                     // 音频采样率
                     AdaptationSet["Representation_asArray"].forEach(Representation => {
                         if (Representation.audioSamplingRate) {
@@ -1619,6 +1610,7 @@ class StreamController {
         this.config = {};
         // 视频分辨率 音频采样率
         this.videoResolvePower = "1920*1080";
+        // private videoResolvePower: string = "1280*720";
         this.audioResolvePower = "48000";
         // 
         this.mediaId = 0;
@@ -1683,13 +1675,15 @@ class StreamController {
                 let AdaptationSet = Period["AdaptationSet_asArray"][j];
                 // 拿到的这个res 是  AdaptationSet 下 所有Representation的 resolvePower:[initializationURL,mediaURL] 组成的 对象
                 let res = this.generateAdaptationSetVideoOrAudioSegmentRequest(AdaptationSet, baseURL, i, j);
-                if (AdaptationSet.mimeType === "video/mp4") {
+                // console.log("AdaptationSet.mimeType", AdaptationSet.mimeType)
+                // 有的mpd文件的 AdaptationSet上面不存在 mimeType属性 而是在下层的 Representation 里面
+                if (AdaptationSet.mimeType === "video/mp4" || AdaptationSet["Representation_asArray"][0].mimeType === "video/mp4") {
                     periodSegmentRequest.VideoSegmentRequest.push({
                         type: "video",
                         video: res
                     });
                 }
-                else if (AdaptationSet.mimeType === "audio/mp4") {
+                else if (AdaptationSet.mimeType === "audio/mp4" || AdaptationSet["Representation_asArray"][0].mimeType === "audio/mp4") {
                     periodSegmentRequest.AudioSegmentRequest.push({
                         lang: AdaptationSet.lang || "en",
                         audio: res
@@ -1752,6 +1746,7 @@ class StreamController {
         // 先默认选择音视频的第一个版本
         let audioRequest = stream.AudioSegmentRequest[0].audio;
         let videoRequest = stream.VideoSegmentRequest[0].video;
+        // 这里不应该直接用 this中的值，应该先进行设置初值
         return this.loadSegment(videoRequest[this.videoResolvePower][0], audioRequest[this.audioResolvePower][0]);
     }
     loadMediaSegment() {

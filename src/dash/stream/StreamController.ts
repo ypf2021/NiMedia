@@ -18,6 +18,8 @@ class StreamController {
     private URLUtils: URLUtils;
     // 视频分辨率 音频采样率
     private videoResolvePower: string = "1920*1080";
+    // private videoResolvePower: string = "1280*720";
+
     private audioResolvePower: string = "48000";
     private eventBus: EventBus;
     private urlLoader: URLLoader;
@@ -101,12 +103,14 @@ class StreamController {
                 let AdaptationSet = Period["AdaptationSet_asArray"][j];
                 // 拿到的这个res 是  AdaptationSet 下 所有Representation的 resolvePower:[initializationURL,mediaURL] 组成的 对象
                 let res = this.generateAdaptationSetVideoOrAudioSegmentRequest(AdaptationSet, baseURL, i, j)
-                if (AdaptationSet.mimeType === "video/mp4") {
+                // console.log("AdaptationSet.mimeType", AdaptationSet.mimeType)
+                // 有的mpd文件的 AdaptationSet上面不存在 mimeType属性 而是在下层的 Representation 里面
+                if (AdaptationSet.mimeType === "video/mp4" || AdaptationSet["Representation_asArray"][0].mimeType === "video/mp4") {
                     periodSegmentRequest.VideoSegmentRequest.push({
                         type: "video",
                         video: res
                     })
-                } else if (AdaptationSet.mimeType === "audio/mp4") {
+                } else if (AdaptationSet.mimeType === "audio/mp4" || AdaptationSet["Representation_asArray"][0].mimeType === "audio/mp4") {
                     periodSegmentRequest.AudioSegmentRequest.push({
                         lang: AdaptationSet.lang || "en",
                         audio: res
@@ -176,6 +180,7 @@ class StreamController {
         // 先默认选择音视频的第一个版本
         let audioRequest = stream.AudioSegmentRequest[0].audio;
         let videoRequest = stream.VideoSegmentRequest[0].video;
+        // 这里不应该直接用 this中的值，应该先进行设置初值
         return this.loadSegment(videoRequest[this.videoResolvePower][0], audioRequest[this.audioResolvePower][0])
     }
 

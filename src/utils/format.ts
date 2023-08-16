@@ -36,9 +36,11 @@ export function parseDuration(pt: string): Time {
     // S: 表示秒。
     // F: 表示帧数。
     // T: 表示时间段的开始时间。
-    // if (!pt) {
-    //     return null
-    // }
+    if (!pt) {
+        return null
+    }
+
+    console.log(pt)
 
     let hours = 0, minutes = 0, seconds = 0;
     for (let i = pt.length - 1; i >= 0; i--) {

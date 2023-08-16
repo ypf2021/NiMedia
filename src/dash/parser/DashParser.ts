@@ -141,6 +141,9 @@ class DashParser {
 
             // 2.解析node上挂载的属性
             for (let prop of (node as Element).attributes) {
+                if (prop.name === "media") {
+                    console.log(prop)
+                }
                 result[prop.name] = prop.value
             }
             return result; //最终返回的result中有tag 有nodename组成的数组，有属性
@@ -221,6 +224,7 @@ class DashParser {
         let totalDuration = 0;
         let MpdDuration = -1;
         if (Mpd.mediaPresentationDuration) {
+            console.log(Mpd)
             MpdDuration = switchToSeconds(parseDuration(Mpd.mediaPresentationDuration));
             console.log("MpdDuration", MpdDuration)
         }
@@ -262,7 +266,6 @@ class DashParser {
      * @description 给每一个Representation对象上挂载duration属性 此处的duration指的是Representation所属的Period所代表的媒体的总时长
      */
     setDurationForRepresentation(Mpd: Mpd) {
-
         //1. 如果只有一个Period 就需要递归的把总时间传到每个元素上
         if (Mpd["Period_asArray"].length === 1) {
             let totalDuration = this.getTotalDuration(Mpd);
@@ -343,14 +346,16 @@ class DashParser {
         Mpd["Period_asArray"].forEach(Period => {
             Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
 
-                if (AdaptationSet.mimeType === "video/mp4") {
+                // 
+                if (AdaptationSet.mimeType === "video/mp4" || AdaptationSet["Representation_asArray"][0].mimeType === "video/mp4") {
                     // 添加视频分辨率
+                    console.log("设置分辨率")
                     AdaptationSet["Representation_asArray"].forEach(Representation => {
                         if (Representation.width && Representation.height) {
                             Representation.resolvePower = `${Representation.width}*${Representation.height}`;
                         }
                     })
-                } else if (AdaptationSet.mimeType === "audio/mp4") {
+                } else if (AdaptationSet.mimeType === "audio/mp4" || AdaptationSet["Representation_asArray"][0].mimeType === "audio/mp4") {
                     // 音频采样率
                     AdaptationSet["Representation_asArray"].forEach(Representation => {
                         if (Representation.audioSamplingRate) {

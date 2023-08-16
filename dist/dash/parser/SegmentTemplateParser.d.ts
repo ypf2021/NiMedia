@@ -16,11 +16,6 @@ declare class SegmentTemplateParser {
     /**
      * @param {Mpd} Mpd
      * @memberof SegmentTemplateParser
-     * @description 设置 Representation_asArray 的 segmentDuration 一般为 (duration / timescale)
-     */
-    /**
-     * @param {Mpd} Mpd
-     * @memberof SegmentTemplateParser
      * @description 调用 处理 InitializationURL，MediaURL 的函数 将其从模板转换为真实的地址
      */
     parseNodeSegmentTemplate(Mpd: Mpd): void;

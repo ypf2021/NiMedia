@@ -1,7 +1,7 @@
 import { FactoryObject } from "../../types/dash/Factory";
 import FactoryMaker from "../FactoryMaker";
 import { AdaptationSet, Mpd, Period, Representation, SegmentTemplate } from "../../types/dash/MpdFile";
-// import { parseDuration, switchToSeconds } from "../../utils/format";
+import { parseDuration, switchToSeconds } from "../../utils/format";
 import { DashParser } from "./DashParser";
 
 /**
@@ -28,35 +28,6 @@ class SegmentTemplateParser {
         // this.setSegmentDurationForRepresentation(Mpd as Mpd);
         this.parseNodeSegmentTemplate(Mpd as Mpd);
     }
-
-    /**
-     * @param {Mpd} Mpd
-     * @memberof SegmentTemplateParser
-     * @description 设置 Representation_asArray 的 segmentDuration 一般为 (duration / timescale)
-     */
-    // setSegmentDurationForRepresentation(Mpd: Mpd) {
-    //     let maxSegmentDuration = switchToSeconds(parseDuration(Mpd.maxSegmentDuration));
-    //     Mpd["Period_asArray"].forEach(Period => {
-    //         Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
-    //             AdaptationSet["Representation_asArray"].forEach(Representation => {
-    //                 if (Representation["SegmentTemplate"]) {
-    //                     if ((Representation["SegmentTemplate"] as SegmentTemplate).duration) {
-    //                         let duration = (Representation["SegmentTemplate"] as SegmentTemplate).duration
-    //                         let timescale = (Representation["SegmentTemplate"] as SegmentTemplate).timescale || 1;
-    //                         Representation.segmentDuration = (duration / timescale).toFixed(1);
-    //                     } else {
-    //                         if (maxSegmentDuration) {
-    //                             Representation.segmentDuration = maxSegmentDuration;
-    //                         } else {
-    //                             throw new Error("MPD文件格式错误")
-    //                         }
-    //                     }
-    //                 }
-    //             })
-    //         })
-    //     })
-    // }
-
 
     /**
      * @param {Mpd} Mpd
@@ -119,19 +90,24 @@ class SegmentTemplateParser {
      * @description 通过正则和替换 得出 MediaURL
      */
     generateMediaURL(SegmentTemplate: SegmentTemplate, parent: Representation) {
-        let templateReg: RegExp = /\$(.+?)\$/ig;
+        let templateReg: RegExp = /\$(.+?)\$/ig;  //这个正则表达式的意思是匹配字符串中所有以"$"开头和结束的部分
         let media = SegmentTemplate.media;
-        let r;
+        let r; // exec返回值为数组 
+        // 索引 0 包含匹配的字符串。
+        // 索引 1 开始包含第一个捕获组（如果有的话）的匹配结果。
+        // 索引 2 开始包含第二个捕获组的匹配结果，以此类推。
+
         let formatArray = new Array<string>();
         let replaceArray = new Array<string>();
         parent.mediaURL = new Array<string>();
 
+        // test() 方法执行一个检索，用来查看正则表达式与指定的字符串是否匹配。返回 true 或 false。
         if (templateReg.test(media)) {
             templateReg.lastIndex = 0;
             while (r = templateReg.exec(media)) {
-                formatArray.push(r[0]);
-                // console.log("r", r, formatArray)
-                if (r[1] === "Number") {
+                console.log(r)
+                formatArray.push(r[0]); // "$Number$"
+                if (r[1] === "Number") { //如果 $ xxx $ 包含的内容为 number就换为 @number@
                     r[1] = "@Number@";
                 } else if (r[1] === "RepresentationID") {
                     r[1] = parent.id;
@@ -142,11 +118,21 @@ class SegmentTemplateParser {
 
         let index = 0;
         while (index < replaceArray.length) {
+            // 把 $ 的部分换为 @
             media = media.replace(formatArray[index], replaceArray[index]);
             index++;
         }
+
+        // 有的mpd文件的duration是 秒，有的是 NPT
+        if (typeof parent.duration === "string" && parent.duration.startsWith("PT")) {
+            parent.duration = switchToSeconds(parseDuration(parent.duration))
+        }
+
+        console.log("parent.duration", parent.duration, "parent.segmentDuration", parent.segmentDuration)
+
         for (let i = 1; i <= Math.ceil(parent.duration / parent.segmentDuration); i++) {
             let s = media;
+            console.log("medias", s)
             while (s.includes("@Number@")) {
                 s = s.replace("@Number@", `${i}`);
             }
