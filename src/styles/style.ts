@@ -16,12 +16,23 @@ export const styles = {
     "video-duration-completed": "controller_video-duration-completed__PYm69",
     "video-settings": "controller_video-settings__SiNyl",
     "video-subsettings": "controller_video-subsettings__6Jtl7",
+
+    "video-playrate-set": "controller_video-playrate-set__VwnVz",
+    "video-resolvepower-set": "controller_video-resolvepower-set__JqEYD",
     "video-volume": "controller_video-volume__R8ory",
-    "video-volume-progress": "controller_video-volume-progress__9FkAX",
+    "video-volume-progress": "controller_video-voulme-progress__VyO8-",
     "video-volume-completed": "controller_video-volume-completed__zwRNX",
-    "video-volume-dot": "pregress_video-dot__giuCI",
+    "video-volume-dot": "controller_video-volume-dot__5dlAl",
     "video-fullscreen": "controller_video-fullscreen__ZLYIr",
     "video-duration-all": "controller_video-duration-all__gGLip",
+
+    "video-controller": "controller_video-controller__SO9PL",
+    "video-playrate": "controller_video-playrate__lj-mz",
+    "video-resolvepower": "controller_video-resolvepower__OuokG",
+
+    "video-volume-set": "controller_video-volume-set__wurEP",
+    "video-volume-show": "controller_video-volume-show__bb2Jm",
+
     "loading-mask": "",
     "loading-container": "",
     "loading-item": "",
@@ -29,5 +40,6 @@ export const styles = {
     "error-mask": "",
     "error-container": "",
     "error-item": "",
-    "error-title": ""
+    "error-title": "",
+
 }

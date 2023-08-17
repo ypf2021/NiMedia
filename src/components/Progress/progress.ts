@@ -1,4 +1,5 @@
 import { $warn, styles, BaseEvent, formatTime } from "../../index";
+import { televisionSVG } from "../SVGTool/TelevisionDotModel";
 import "./progress.less";
 
 // 进度条组件
@@ -31,7 +32,9 @@ export class Progress extends BaseEvent {
                 <div class="${styles["video-pretime"]}">00:00</div>
                 <div class="${styles["video-buffered"]}"></div>
                 <div class="${styles["video-completed"]} "></div>
-                <div class="${styles["video-dot"]} ${styles["video-dot-hidden"]}"></div>
+                <div class="${styles["video-dot"]} ${styles["video-dot-hidden"]}">
+                    ${televisionSVG}
+                </div>
             </div>
         `
     }

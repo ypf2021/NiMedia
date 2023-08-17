@@ -49,7 +49,7 @@ declare class StreamController {
     loadSegment(videoURL: any, audioURL: any): Promise<[any, any]>;
     onSegmentConsumed(): Promise<void>;
     /**
-     * @description 只有在触发seek事件后,选到了没加载的地方才会触发此方法
+     * @description  如果此时video发生缓存内容之外的跳转，则需要重新请求对应的segment，因此需要中断正在发送还没有收到结果的请求
      * @param tuple
      */
     onSegmentRequest(tuple: [number, number]): Promise<void>;
