@@ -1,5 +1,5 @@
 import { Component } from "../../class/Component";
-import { Node, ComponentItem, DOMProps, Player, Progress } from "../../index";
+import { Node, ComponentItem, DOMProps, Player, Progress, Controller, } from "../../index";
 import { addClass, includeClass, removeClass } from "../../utils/domUtils";
 import "./toolbar.less";
 
@@ -114,6 +114,7 @@ export class ToolBar extends Component implements ComponentItem {
     props: DOMProps;
     player: Player;
     progress: Progress;
+    controller: Controller;
     private timer: number = 0;
     // 先初始化播放器的默认样式，暂时不考虑用户的自定义样式
 
@@ -126,8 +127,9 @@ export class ToolBar extends Component implements ComponentItem {
 
     init() {
         this.initTemplate();
-        this.initEvent();
         this.initComponent();
+        this.initEvent();
+
     }
 
     /**
@@ -149,8 +151,8 @@ export class ToolBar extends Component implements ComponentItem {
 
     initComponent() {
         this.progress = new Progress(this.player, this.el, "div.video-progress");
+        this.controller = new Controller(this.player, this.el, "div.video-play")
     }
-
 
     private hideToolBar() {
         if (!includeClass(this.el, "video-controls-hidden")) {

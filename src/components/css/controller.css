@@ -17,8 +17,13 @@
   display: flex;
   align-items: center;
 }
-.video-play .video-subplay .video-start-pause i {
-  font-size: 20px !important;
+.video-play .video-subplay .video-start-pause svg {
+  width: 20px;
+  height: 20px;
+}
+.video-play .video-subplay .video-start-pause svg path {
+  fill: #fff;
+  stroke-width: 3px;
 }
 .video-play .video-subplay .video-duration {
   margin-left: 5px;

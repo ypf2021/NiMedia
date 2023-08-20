@@ -21,6 +21,7 @@ class Player extends Component implements ComponentItem {
     constructor(options: PlayerOptions) {
         super(options.container, "div.video-wrapper");
         this.playerOptions = Object.assign(this.playerOptions, options);
+        console.log("playerOptions", this.playerOptions)
         options.container.className = "video-container";
         options.container.style.width = this.playerOptions.width + "px";
         options.container.style.height = this.playerOptions.height + "px"
@@ -55,6 +56,15 @@ class Player extends Component implements ComponentItem {
         this.video.ontimeupdate = (e) => {
             this.emit("timeupdate", e);
         }
+
+        this.video.onplay = (e) => {
+            this.emit("play", e);
+        }
+
+        this.video.onpause = (e) => {
+            this.emit("pause", e);
+        }
+
 
         this.on("progress-click", (e, ctx) => {
             let scale = e.offsetX / ctx.el.offsetWidth;
