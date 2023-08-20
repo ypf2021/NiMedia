@@ -5,7 +5,8 @@ import { $, addClass } from "../../utils/domUtils";
 import "./controller.less"
 import { PlayButton } from "./parts/PlayButton";
 import { Volume } from "./parts/Volume";
-
+import { FullScreen } from "./parts/FullScreen";
+import { Playrate } from "./parts/PlayerRate";
 export class Controller extends Component implements ComponentItem {
     readonly id = "Controller";
     props: DOMProps;
@@ -14,6 +15,8 @@ export class Controller extends Component implements ComponentItem {
     private subPlay: HTMLElement;
     private settings: HTMLElement;
     volume: Volume;
+    fullscreen: FullScreen;
+    playrate: Playrate;
 
     constructor(player: Player, container: HTMLElement, desc?: string, props?: DOMProps, children?: Node[]) {
         super(container, desc, props, children);
@@ -38,6 +41,8 @@ export class Controller extends Component implements ComponentItem {
         this.playButton = new PlayButton(this.player, this.subPlay, "div.video-start-pause");
         // 按钮挂在到了 setting 下面
         this.volume = new Volume(this.player, this.settings, "div");
+        this.playrate = new Playrate(this.player, this.settings, "div")
+        this.fullscreen = new FullScreen(this.player, this.settings, "div");
         addClass(this.volume.el, ["video-volume", "video-controller"])
     }
 }

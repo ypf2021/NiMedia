@@ -9,6 +9,7 @@ declare class Player extends Component implements ComponentItem {
         width: string;
         height: string;
     };
+    container: HTMLElement;
     video: HTMLVideoElement;
     toolBar: ToolBar;
     constructor(options: PlayerOptions);
