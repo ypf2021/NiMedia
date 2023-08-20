@@ -1,4 +1,4 @@
-import { ComponentItem, DOMProps, Node, registerOptions } from "../types/Player";
+import { ComponentItem, DOMProps, Node, getFunctionParametersType, registerOptions } from "../types/Player";
 
 export function getDOMPoint(dom: HTMLElement): { x: number, y: number } {
     var t = 0;
@@ -273,6 +273,12 @@ export function patchStyle(
 }
 
 
-export function patchFn<T extends Function>(targetFn: T, another: T, context: ComponentItem) {
-
+export function patchFn<T extends (...args: any[]) => any>(targetFn: T, another: T, context: ComponentItem) {
+    let args = targetFn.arguments;
+    function fn(...args: getFunctionParametersType<T>[]) {
+        // 返回一个让两个都执行的函数
+        targetFn.call(context, ...args);
+        another.call(context, ...args);
+    }
+    targetFn = fn as T;
 }
