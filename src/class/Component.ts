@@ -2,6 +2,13 @@ import { $ } from "../utils/domUtils";
 import { BaseEvent } from "./BaseEvent";
 import { DOMProps, Node } from "../types/Player";
 
+/**
+ *
+ * @description 创建dom并挂载到container
+ * @export
+ * @class Component
+ * @extends {BaseEvent}
+ */
 export class Component extends BaseEvent {
     el: HTMLElement; // el代表着该组件对应的整个HTML元素
 

@@ -68,7 +68,8 @@
   font-size: 12px;
 }
 .video-play .video-settings .video-volume .video-volume-set .video-voulme-progress {
-  width: 2px;
+  border-radius: 2px;
+  width: 5px;
   height: calc(100% - 20px - 10px);
   margin-top: 8px;
   margin-left: 50%;

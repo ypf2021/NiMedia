@@ -153,6 +153,7 @@ export function getElementSize(
 const svgNS = 'http://www.w3.org/2000/svg';
 
 export function createSvg(d?: string, viewBox = '0 0 1024 1024'): SVGSVGElement {
+    // NS代表XML结构的 命名空间 xmlns="http://www.w3.org/2000/svg"
     const svg = document.createElementNS(svgNS, 'svg');
     svg.setAttribute('viewBox', viewBox);
     if (d) {
