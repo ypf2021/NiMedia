@@ -29,6 +29,7 @@ export declare const styles: {
     "video-resolvepower": string;
     "video-volume-set": string;
     "video-volume-show": string;
+    "video-icon": string;
     "loading-mask": string;
     "loading-container": string;
     "loading-item": string;

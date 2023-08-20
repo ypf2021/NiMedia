@@ -1,3 +1,33 @@
+.toolbar_video-controls__wzQC1 {
+  position: absolute;
+  bottom: 5px;
+  left: 0;
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.2);
+  background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAADGCAYAAAAT+OqFAAAAdklEQVQoz42QQQ7AIAgEF/T/D+kbq/RWAlnQyyazA4aoAB4FsBSA/bFjuF1EOL7VbrIrBuusmrt4ZZORfb6ehbWdnRHEIiITaEUKa5EJqUakRSaEYBJSCY2dEstQY7AuxahwXFrvZmWl2rh4JZ07z9dLtesfNj5q0FU3A5ObbwAAAABJRU5ErkJggg==) repeat-x bottom;
+  color: #fff;
+  height: 55px;
+  -webkit-transition: all 0.3s ease;
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+.toolbar_video-controls-hidden__PscSU {
+  height: 5px;
+}
+
+.player_video-container__rlzfV {
+  position: relative;
+  overflow: hidden;
+}
+.player_video-container__rlzfV .player_video-wrapper__srBRw {
+  width: 100%;
+  height: 100%;
+}
+.player_video-container__rlzfV .player_video-wrapper__srBRw video {
+  width: 100%;
+  height: 100%;
+}
+
 .controller_video-play__aWE0Y {
   display: -webkit-box;
   display: -webkit-flex;
@@ -231,119 +261,3 @@
 }
 
 
-
-.progress_video-progress__DMF70 {
-  width: 100%;
-  height: 5px;
-  background-color: hsla(0, 0%, 100%, 0.2);
-  cursor: pointer;
-  position: relative;
-}
-.progress_video-progress__DMF70 .progress_video-pretime__gDMzS {
-  position: absolute;
-  left: 0;
-  top: -18px;
-  height: 15px;
-  width: 35px;
-  background-color: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  line-height: 15px;
-  text-align: center;
-  font-size: 10px;
-  display: none;
-}
-.progress_video-progress__DMF70 .progress_video-buffered__xlu1O {
-  left: 0;
-  height: 100%;
-  width: 0;
-  z-index: 1001;
-  position: absolute;
-  background-color: hsla(0, 0%, 100%, 0.3);
-  border-top-right-radius: 3px;
-  border-bottom-right-radius: 3px;
-}
-.progress_video-progress__DMF70 .progress_video-completed__j0yvy {
-  position: absolute;
-  background-color: #00a1d6;
-  height: 100%;
-  border-top-right-radius: 3px;
-  border-bottom-right-radius: 3px;
-  left: 0;
-  width: 0;
-  z-index: 1002;
-}
-.progress_video-progress__DMF70 .progress_video-dot-hidden__S-oLG {
-  opacity: 0;
-  -webkit-transition: all 0.6s ease;
-  transition: all 0.6s ease;
-}
-.progress_video-progress__DMF70 .progress_video-dot__u2nX7 {
-  position: absolute;
-  left: 0px;
-  top: 50%;
-  -webkit-transform: translateY(-9px);
-          transform: translateY(-9px);
-  cursor: pointer;
-  z-index: 1003;
-}
-
-.toolbar_video-controls__wzQC1 {
-  position: absolute;
-  bottom: 5px;
-  left: 0;
-  width: 100%;
-  background-color: rgba(0, 0, 0, 0.2);
-  background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAADGCAYAAAAT+OqFAAAAdklEQVQoz42QQQ7AIAgEF/T/D+kbq/RWAlnQyyazA4aoAB4FsBSA/bFjuF1EOL7VbrIrBuusmrt4ZZORfb6ehbWdnRHEIiITaEUKa5EJqUakRSaEYBJSCY2dEstQY7AuxahwXFrvZmWl2rh4JZ07z9dLtesfNj5q0FU3A5ObbwAAAABJRU5ErkJggg==) repeat-x bottom;
-  color: #fff;
-  height: 55px;
-  -webkit-transition: all 0.3s ease;
-  transition: all 0.3s ease;
-  z-index: 1000;
-}
-.toolbar_video-controls-hidden__PscSU {
-  height: 5px;
-}
-
-.player_video-container__I9fU2 {
-  position: relative;
-  overflow: hidden;
-}
-.player_video-container__I9fU2 .player_video-wrapper__tN3j3 {
-  width: 100%;
-  height: 100%;
-}
-.player_video-container__I9fU2 .player_video-wrapper__tN3j3 video {
-  width: 100%;
-  height: 100%;
-}
-
-@font-face {
-  font-family: "iconfont";
-  /* Project id 3797258 */
-  src: url("//at.alicdn.com/t/c/font_3797258_88colj2uuv9.woff2?t=1670043636699") format("woff2"), url("//at.alicdn.com/t/c/font_3797258_88colj2uuv9.woff?t=1670043636699") format("woff"), url("//at.alicdn.com/t/c/font_3797258_88colj2uuv9.ttf?t=1670043636699") format("truetype");
-}
-.main_iconfont__rq6b0 {
-  font-family: "iconfont" !important;
-  font-size: 16px;
-  font-style: normal;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-.main_icon-cuowutishi__Pp9HP:before {
-  content: "\e656";
-}
-.main_icon-shezhi__jiDcS:before {
-  content: "\e64b";
-}
-.main_icon-quanping__P8j59:before {
-  content: "\eb11";
-}
-.main_icon-yinliang__dvwc6:before {
-  content: "\e63c";
-}
-.main_icon-zanting__y4zTz:before {
-  content: "\e87a";
-}
-.main_icon-bofang__jDO5s:before {
-  content: "\e87c";
-}

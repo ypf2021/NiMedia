@@ -33,6 +33,8 @@ export const styles = {
     "video-volume-set": "controller_video-volume-set__wurEP",
     "video-volume-show": "controller_video-volume-show__bb2Jm",
 
+    "video-icon": "",
+
     "loading-mask": "",
     "loading-container": "",
     "loading-item": "",

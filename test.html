@@ -11,17 +11,11 @@
 </head>
 
 <body>
-    <input type="file" id="file">
     <div id="video">
         <!-- <video id="videoPlayer" controls width="500" height="300"></video> -->
     </div>
     <script src="./dist/player.umd.js"></script>
     <script>
-        // (function(){
-        //     var url = "https://dash.akamaized.net/envivio/EnvivioDash3/manifest.mpd";
-        //     var player = dashjs.MediaPlayer().create();
-        //     player.initialize(document.querySelector("#videoPlayer"), url, true);
-        // })();
         let player = new Player.Player({
             // url: "https://dash.akamaized.net/envivio/EnvivioDash3/manifest.mpd",
             // url: "https://dash.akamaized.net/dash264/TestCases/5a/nomor/1.mpd",

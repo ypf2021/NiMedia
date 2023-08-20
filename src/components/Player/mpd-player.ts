@@ -100,7 +100,7 @@
 // }
 
 import MediaPlayer from "../../dash/MediaPlayer";
-import { Player } from "./player"
+import { Player } from "../../page/player"
 
 export class MpdPlayer {
     constructor(player: Player) {

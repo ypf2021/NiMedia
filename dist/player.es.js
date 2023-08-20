@@ -22,6 +22,456 @@ function $warn(msg) {
     throw new Error(msg);
 }
 
+function getDOMPoint(dom) {
+    var t = 0;
+    var l = 0;
+    //判断是否有父容器，如果存在则累加其边距
+    while (dom !== document.body) {
+        t += dom.offsetTop; //叠加父容器的上边距
+        l += dom.offsetLeft; //叠加父容器的左边距
+        //if(dom.style.borderLeftWidth) l += Number(dom.style.borderLeftWidth);
+        //if(dom.style.borderTopWidth) t += Number(dom.style.borderTopWidth);
+        dom = dom.parentNode;
+    }
+    return { x: l, y: t };
+}
+/**
+ * @description 查看当前的鼠标位置是否在父元素和绝对定位的子元素的组合范围内，如果超出则返回false
+ * @param parent
+ * @param topChild
+ * @param pageX
+ * @param pageY
+ * @returns {boolean}
+ */
+function checkIsMouseInRange(parent, topChild, pageX, pageY) {
+    let { x, y } = getDOMPoint(parent);
+    let allTop = y - parseInt(topChild.style.bottom) - topChild.clientHeight;
+    let allBottom = y + parent.clientHeight;
+    let allLeft = x + Math.round(parent.clientWidth / 2) - Math.round(topChild.clientWidth / 2);
+    let allRight = x + Math.round(parent.clientWidth / 2) + Math.round(topChild.clientWidth / 2);
+    let parentLeft = x;
+    let parentRight = x + parent.clientWidth;
+    if (pageX >= allLeft && pageX <= allRight && pageY <= y && pageY >= allTop)
+        return true;
+    if (pageX >= parentLeft - 5 && pageX <= parentRight + 5 && pageY >= y && pageY <= allBottom)
+        return true;
+    return false;
+}
+// 用于匹配 HTML/CSS 类选择器的模式 匹配 element #id .class element#id element.class element#id.class
+const SELECTOR_REG = /([\w-]+)?(?:#([\w-]+))?(?:\.([\w-]+))?/;
+/**
+ * @description 根据desc的标签描述和props的属性描述来创建一个DOM对象，并且在实例上挂载各种属性
+ * @param {string} desc
+ * @param {DOMProps} props
+ * @param {Node[]} children
+ * @returns
+ */
+function $(desc, props, children) {
+    let match = [];
+    let regArray = SELECTOR_REG.exec(desc);
+    match[0] = regArray[1] || undefined; // element
+    match[1] = regArray[2] || undefined; // #
+    match[2] = regArray[3] || undefined; // .
+    let el = match[0] ? document.createElement(match[0]) : document.createElement("div");
+    if (match[1]) {
+        el.id = match[1];
+    }
+    match[2] && addClass(el, [match[2]]);
+    // 添加属性， 对象先考虑是 style的情况
+    for (let key in props) {
+        if (typeof props[key] === "object") {
+            if (key === "style") {
+                let str = "";
+                let styles = props[key];
+                for (let k in styles) {
+                    str += `${k}: ${styles[k]};`;
+                }
+                el.setAttribute("style", str);
+            }
+        }
+        else {
+            el.setAttribute(key, String(props[key]));
+        }
+    }
+    // 如果child是 string 一般是文本节点 
+    if (typeof children === "string") {
+        el.innerHTML += children;
+    }
+    else if (children) {
+        for (let child of children) {
+            el.appendChild(child.el);
+        }
+    }
+    return el;
+}
+function addClass(dom, classNames) {
+    let classList = dom.classList;
+    for (let name of classNames) {
+        if (!includeClass(dom, name)) {
+            classList.add(name);
+        }
+    }
+}
+function includeClass(dom, className) {
+    let classList = dom.classList;
+    for (let key in classList) {
+        if (classList[key] === className)
+            return true;
+    }
+    return false;
+}
+function removeClass(dom, classNames) {
+    let classList = dom.classList;
+    classList.remove(...classNames);
+}
+function getElementSize(dom) {
+    // 深度克隆，连带子节点
+    const clone = dom.cloneNode(true);
+    clone.style.position = 'absolute';
+    clone.style.opacity = '0';
+    clone.removeAttribute('hidden');
+    const parent = dom.parentNode || document.body;
+    parent.appendChild(clone);
+    // 用于获取指定元素相对于视口（viewport）的位置信息。它返回一个 DOMRect 对象，其中包含了元素的位置、尺寸和其他相关信息。 rect.x, y , width. height ,right , bottom
+    const rect = clone.getBoundingClientRect();
+    parent.removeChild(clone);
+    return rect;
+}
+
+class Component extends BaseEvent {
+    constructor(container, desc, props, children) {
+        super();
+        let dom = $(desc, props, children);
+        this.el = dom;
+        // 用于向指定元素的子节点列表末尾添加一个或多个节点对象或文本节点。
+        container.append(dom);
+    }
+}
+
+// 音乐播放器的工具栏组件 ( progress + controller )
+// export class ToolBar extends Component implements ComponentItem {
+//     private template_!: HTMLElement;
+//     private progress!: Progress;
+//     private controller!: Controller;
+//     private container!: HTMLElement;
+//     private video!: HTMLVideoElement;
+//     private timer!: null | number
+//     constructor(container: HTMLElement) {
+//         super()
+//         this.container = container
+//         this.init();
+//         this.initComponent();
+//         this.initTemplate();
+//         this.initEvent();
+//     }
+//     get template(): HTMLElement {
+//         return this.template_
+//     };
+//     init(): void { }
+//     // 注册 进度条 和 控制器
+//     initComponent() {
+//         this.progress = new Progress(this.container) // 进度条
+//         this.controller = new Controller(this.container) //下面的控制器
+//     }
+//     // 组合 进度条 和 控制器的template
+//     initTemplate() {
+//         let div = document.createElement("div")
+//         div.className = `${styles["video-controls"]} ${styles["video-controls-hidden"]}`;
+//         div.innerHTML += this.progress.template as string;
+//         div.innerHTML += this.controller.template as string;
+//         this.template_ = div
+//     }
+//     // 显示和隐藏toolbar
+//     showToolBar(e: MouseEvent) {
+//         //工具栏的总容器
+//         this.container.querySelector(
+//             `.${styles["video-controls"]}`
+//         )!.className = `${styles["video-controls"]}`;
+//         if (e.target !== this.video) {
+//             // do nothing
+//         } else {
+//             // 一个防抖
+//             this.timer = window.setTimeout(() => {
+//                 this.hideToolBar()
+//             }, 3000)
+//         }
+//     }
+//     hideToolBar() {
+//         this.container.querySelector(
+//             `.${styles["video-controls"]}`
+//         )!.className = `${styles["video-controls"]} ${styles["video-controls-hidden"]}`;
+//     }
+//     initEvent() {
+//         this.on("showtoolbar", (e: MouseEvent) => {
+//             // 防抖
+//             if (this.timer) {
+//                 clearTimeout(this.timer);
+//                 this.timer = null
+//             }
+//             this.showToolBar(e)
+//         });
+//         this.on("hidetoolbar", () => {
+//             this.hideToolBar()
+//         });
+//         this.on("loadedmetadata", (summary: number) => {
+//             this.controller.emit("loadedmetadata", summary);
+//             this.progress.emit("loadedmetadata", summary);
+//         });
+//         this.on("timeupdate", (current: number) => {
+//             this.controller.emit("timeupdate", current);
+//             this.progress.emit("timeupdate", current);
+//         });
+//         this.on("mounted", () => {
+//             this.video = this.container.querySelector("video")!;
+//             this.controller.emit("mounted");
+//             this.progress.emit("mounted")
+//         });
+//         this.on("play", () => {
+//             this.controller.emit("play")
+//         })
+//         this.on("pause", () => {
+//             this.controller.emit("pause")
+//         })
+//     }
+// }
+class ToolBar extends Component {
+    // 先初始化播放器的默认样式，暂时不考虑用户的自定义样式
+    constructor(player, container, desc, props, children) {
+        super(container, desc, props, children);
+        this.id = "Toolbar";
+        this.timer = 0;
+        this.player = player;
+        this.props = props;
+        this.init();
+    }
+    init() {
+        this.initTemplate();
+        this.initEvent();
+    }
+    /**
+    * @description 需要注意的是此处元素的class名字是官方用于控制整体toolbar一栏的显示和隐藏
+    */
+    initTemplate() {
+        addClass(this.el, ["video-controls", "video-controls-hidden"]);
+    }
+    initEvent() {
+        this.player.on("showtoolbar", (e) => {
+            this.onShowToolBar(e);
+        });
+        this.player.on("hidetoolbar", (e) => {
+            this.onHideToolBar(e);
+        });
+    }
+    hideToolBar() {
+        if (!includeClass(this.el, "video-controls-hidden")) {
+            addClass(this.el, ["video-controls-hidden"]);
+        }
+    }
+    showToolBar(e) {
+        if (includeClass(this.el, "video-controls-hidden")) {
+            removeClass(this.el, ["video-controls-hidden"]);
+        }
+        if (e.target === this.player.video) {
+            this.timer = window.setTimeout(() => {
+                this.hideToolBar();
+            }, 3000);
+        }
+    }
+    onShowToolBar(e) {
+        if (this.timer) {
+            window.clearTimeout(this.timer);
+            this.timer = null;
+        }
+        this.showToolBar(e);
+    }
+    onHideToolBar(e) {
+        this.hideToolBar();
+    }
+}
+
+class Dot extends Component {
+    constructor(player, container, desc, props, children) {
+        super(container, desc, props, children);
+        this.id = "Dot";
+        this.props = props;
+        this.player = player;
+        this.init();
+    }
+    init() {
+        addClass(this.el, ["video-dot", "video-dot-hidden"]);
+        this.initEvent();
+    }
+    initEvent() {
+        this.player.on("progress-mouseenter", (e) => {
+            this.onShowDot(e);
+        });
+        this.player.on("progress-mouseleave", (e) => {
+            this.onHideDot(e);
+        });
+        this.player.on("progress-click", (e, ctx) => {
+            this.onChangePos(e, ctx);
+        });
+    }
+    onShowDot(e) {
+        if (includeClass(this.el, "video-dot-hidden")) {
+            removeClass(this.el, ["video-dot-hidden"]);
+        }
+    }
+    onHideDot(e) {
+        if (!includeClass(this.el, "video-dot-hidden")) {
+            addClass(this.el, ["video-dot-hidden"]);
+        }
+    }
+    onChangePos(e, ctx) {
+        e.offsetX / ctx.el.offsetWidth;
+        this.el.style.left = e.offsetX - getElementSize(this.el).width / 2 + 'px';
+    }
+}
+
+class CompletedProgress extends Component {
+    constructor(player, container, desc, props, children) {
+        super(container, desc, props, children);
+        this.id = "CompletedProgress";
+        this.props = props;
+        this.player = player;
+        this.init();
+    }
+    init() {
+        this.initEvent();
+    }
+    initEvent() {
+        this.player.on("progress-click", (e, ctx) => {
+            this.onChangeWidth(e, ctx);
+        });
+    }
+    onChangeWidth(e, ctx) {
+        let scale = e.offsetX / ctx.el.offsetWidth;
+        if (scale < 0) {
+            scale = 0;
+        }
+        else if (scale > 1) {
+            scale = 1;
+        }
+        this.el.style.width = scale * 100 + "%";
+    }
+}
+
+class BufferedProgress extends Component {
+    constructor(player, container, desc, props, children) {
+        super(container, desc, props, children);
+        this.id = "BufferedProgress";
+        this.props = props;
+        this.player = player;
+        this.init();
+    }
+    init() {
+        this.initEvent();
+    }
+    initEvent() {
+        this.player.on("progress-click", (e, ctx) => {
+            this.onChangeWidth(e, ctx);
+        });
+    }
+    onChangeWidth(e, ctx) {
+        let scale = e.offsetX / ctx.el.offsetWidth;
+        if (scale < 0) {
+            scale = 0;
+        }
+        else if (scale > 1) {
+            scale = 1;
+        }
+        this.el.style.width = scale * 100 + "%";
+    }
+}
+
+// import { $warn, styles, BaseEvent, formatTime } from "../../index";
+// id 和 el是必须的元素
+class Progress extends Component {
+    constructor(player, container, desc, props, children) {
+        super(container, desc, props, children);
+        this.id = "Progress";
+        this.mouseDown = false;
+        this.player = player;
+        this.init();
+    }
+    init() {
+        this.initComponent();
+        this.initEvent();
+    }
+    initComponent() {
+        this.dot = new Dot(this.player, this.el, "div.video-progress");
+        this.completedProgress = new CompletedProgress(this.player, this.el, "div.video-completed");
+        this.bufferedProgress = new BufferedProgress(this.player, this.el, "div.video-buffered");
+    }
+    initEvent() {
+        this.el.onmouseenter = (e) => {
+            this.player.emit("progress-mouseenter", e, this);
+        };
+        this.el.onmouseleave = (e) => {
+            this.player.emit("progress-mouseleave", e, this);
+        };
+        this.el.onclick = (e) => {
+            this.player.emit("progress-click", e, this);
+        };
+    }
+}
+
+class Player extends Component {
+    constructor(options) {
+        super(options.container, "div.video-wrapper");
+        this.id = "Player";
+        this.playerOptions = {
+            url: "",
+            autoplay: false,
+            width: "100%",
+            height: "100%",
+        };
+        this.playerOptions = Object.assign(this.playerOptions, options);
+        options.container.className = "video-container";
+        options.container.style.width = this.playerOptions.width + "px";
+        options.container.style.height = this.playerOptions.height + "px";
+        this.init();
+    }
+    init() {
+        this.video = $("video");
+        this.video.src = this.playerOptions.url || "";
+        this.el.appendChild(this.video);
+        this.toolBar = new ToolBar(this, this.el, "div");
+        this.initEvent();
+    }
+    initEvent() {
+        this.video.onmousemove = (e) => {
+            this.emit("showtoolbar", e);
+        };
+        this.video.onmouseenter = (e) => {
+            this.emit("showtoolbar", e);
+        };
+        this.video.onmouseleave = (e) => {
+            this.emit("hidetoolbar", e);
+        };
+        this.video.onloadedmetadata = (e) => {
+            this.emit("loadedmetadata", e);
+        };
+        this.video.ontimeupdate = (e) => {
+            this.emit("timeupdate", e);
+        };
+        this.on("progress-click", (e, ctx) => {
+            let scale = e.offsetX / ctx.el.offsetWidth;
+            if (scale < 0) {
+                scale = 0;
+            }
+            else if (scale > 1) {
+                scale = 1;
+            }
+            this.video.currentTime = Math.floor(scale * this.video.duration);
+            this.video.paused && this.video.play();
+        });
+    }
+    attendSource(url) {
+        this.video.src = url;
+    }
+}
+
 const styles = {
     "video-container": "player_video-container__I9fU2",
     "video-wrapper": "player_video-wrapper__tN3j3",
@@ -53,6 +503,7 @@ const styles = {
     "video-resolvepower": "controller_video-resolvepower__OuokG",
     "video-volume-set": "controller_video-volume-set__wurEP",
     "video-volume-show": "controller_video-volume-show__bb2Jm",
+    "video-icon": "",
     "loading-mask": "",
     "loading-container": "",
     "loading-item": "",
@@ -150,42 +601,6 @@ const fullScreenSVG = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 88" width="88" height="88" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; transform: translate3d(0px, 0px, 0px);"><defs><clipPath id="__lottie_element_182"><rect width="88" height="88" x="0" y="0"></rect></clipPath></defs><g clip-path="url(#__lottie_element_182)"><g transform="matrix(1,0,0,1,44,74.22000122070312)" opacity="1" style="display: block;"><g opacity="1" transform="matrix(1,0,0,1,0,0)"><path fill="rgb(255,255,255)" fill-opacity="1" d=" M19.219999313354492,0.2199999988079071 C7.480000019073486,7.630000114440918 -7.480000019073486,7.630000114440918 -19.219999313354492,0.2199999988079071 C-19.219999313354492,0.2199999988079071 -16.219999313354492,-5.78000020980835 -16.219999313354492,-5.78000020980835 C-6.389999866485596,0.75 6.409999847412109,0.75 16.239999771118164,-5.78000020980835 C16.239999771118164,-5.78000020980835 19.219999313354492,0.2199999988079071 19.219999313354492,0.2199999988079071z"></path></g></g><g transform="matrix(1,0,0,1,68.58000183105469,27.895000457763672)" opacity="1" style="display: block;"><g opacity="1" transform="matrix(1,0,0,1,0,0)"><path fill="rgb(255,255,255)" fill-opacity="1" d=" M11.420000076293945,16.104999542236328 C11.420000076293945,16.104999542236328 4.78000020980835,16.104999542236328 4.78000020980835,16.104999542236328 C4.78000020980835,16.104999542236328 4.78000020980835,14.635000228881836 4.78000020980835,14.635000228881836 C4.25,4.054999828338623 -1.940000057220459,-5.425000190734863 -11.420000076293945,-10.164999961853027 C-11.420000076293945,-10.164999961853027 -8.479999542236328,-16.104999542236328 -8.479999542236328,-16.104999542236328 C3.7200000286102295,-10.005000114440918 11.420000076293945,2.4649999141693115 11.420000076293945,16.104999542236328 C11.420000076293945,16.104999542236328 11.420000076293945,16.104999542236328 11.420000076293945,16.104999542236328z"></path></g></g><g transform="matrix(1,0,0,1,19.450000762939453,27.895000457763672)" opacity="1" style="display: block;"><g opacity="1" transform="matrix(1,0,0,1,0,0)"><path fill="rgb(255,255,255)" fill-opacity="1" d=" M-4.809999942779541,16.104999542236328 C-4.809999942779541,16.104999542236328 -11.449999809265137,16.104999542236328 -11.449999809265137,16.104999542236328 C-11.449999809265137,2.4649999141693115 -3.75,-10.005000114440918 8.449999809265137,-16.104999542236328 C8.449999809265137,-16.104999542236328 11.449999809265137,-10.164999961853027 11.449999809265137,-10.164999961853027 C1.4900000095367432,-5.204999923706055 -4.809999942779541,4.974999904632568 -4.809999942779541,16.104999542236328 C-4.809999942779541,16.104999542236328 -4.809999942779541,16.104999542236328 -4.809999942779541,16.104999542236328z"></path></g></g><g transform="matrix(1,0,0,1,44.0099983215332,65.96499633789062)" opacity="1" style="display: block;"><g opacity="1" transform="matrix(1,0,0,1,0,0)"><path fill="rgb(255,255,255)" fill-opacity="1" d=" M-0.009999999776482582,5.34499979019165 C-5.46999979019165,5.355000019073486 -10.800000190734863,3.7149999141693115 -15.319999694824219,0.6549999713897705 C-15.319999694824219,0.6549999713897705 -12.319999694824219,-5.34499979019165 -12.319999694824219,-5.34499979019165 C-5,0.08500000089406967 5,0.08500000089406967 12.319999694824219,-5.34499979019165 C12.319999694824219,-5.34499979019165 15.319999694824219,0.6549999713897705 15.319999694824219,0.6549999713897705 C10.800000190734863,3.7249999046325684 5.460000038146973,5.355000019073486 -0.009999999776482582,5.34499979019165z"></path></g></g><g transform="matrix(1,0,0,1,62.275001525878906,31.780000686645508)" opacity="1" style="display: block;"><g opacity="1" transform="matrix(1,0,0,1,0,0)"><path fill="rgb(255,255,255)" fill-opacity="1" d=" M9.015000343322754,10.850000381469727 C9.015000343322754,10.850000381469727 9.015000343322754,12.220000267028809 9.015000343322754,12.220000267028809 C9.015000343322754,12.220000267028809 2.434999942779541,12.220000267028809 2.434999942779541,12.220000267028809 C2.434999942779541,12.220000267028809 2.434999942779541,11.220000267028809 2.434999942779541,11.220000267028809 C2.075000047683716,3.740000009536743 -2.305000066757202,-2.9700000286102295 -9.015000343322754,-6.309999942779541 C-9.015000343322754,-6.309999942779541 -6.014999866485596,-12.220000267028809 -6.014999866485596,-12.220000267028809 C-6.014999866485596,-12.220000267028809 -6.014999866485596,-12.220000267028809 -6.014999866485596,-12.220000267028809 C2.7850000858306885,-7.800000190734863 8.524999618530273,1.0099999904632568 9.015000343322754,10.850000381469727 C9.015000343322754,10.850000381469727 9.015000343322754,10.850000381469727 9.015000343322754,10.850000381469727z"></path></g></g><g transform="matrix(1,0,0,1,25.729999542236328,31.780000686645508)" opacity="1" style="display: block;"><g opacity="1" transform="matrix(1,0,0,1,0,0)"><path fill="rgb(255,255,255)" fill-opacity="1" d=" M-2.440000057220459,12.220000267028809 C-2.440000057220459,12.220000267028809 -9.050000190734863,12.220000267028809 -9.050000190734863,12.220000267028809 C-9.050000190734863,1.8700000047683716 -3.2100000381469727,-7.590000152587891 6.050000190734863,-12.220000267028809 C6.050000190734863,-12.220000267028809 9.050000190734863,-6.309999942779541 9.050000190734863,-6.309999942779541 C2.0199999809265137,-2.809999942779541 -2.430000066757202,4.360000133514404 -2.440000057220459,12.220000267028809 C-2.440000057220459,12.220000267028809 -2.440000057220459,12.220000267028809 -2.440000057220459,12.220000267028809z"></path></g></g><g transform="matrix(1,0,0,1,44,57.654998779296875)" opacity="1" style="display: block;"><g opacity="1" transform="matrix(1,0,0,1,0,0)"><path fill="rgb(255,255,255)" fill-opacity="1" d=" M0,4.974999904632568 C-4.110000133514404,4.994999885559082 -8.119999885559082,3.6449999809265137 -11.380000114440918,1.1349999904632568 C-11.380000114440918,1.1349999904632568 -8.319999694824219,-4.974999904632568 -8.319999694824219,-4.974999904632568 C-3.6700000762939453,-0.5049999952316284 3.6700000762939453,-0.5049999952316284 8.319999694824219,-4.974999904632568 C8.319999694824219,-4.974999904632568 11.380000114440918,1.1349999904632568 11.380000114440918,1.1349999904632568 C8.109999656677246,3.634999990463257 4.110000133514404,4.985000133514404 0,4.974999904632568 C0,4.974999904632568 0,4.974999904632568 0,4.974999904632568z"></path></g></g><g transform="matrix(1,0,0,1,55.9900016784668,35.665000915527344)" opacity="1" style="display: block;"><g opacity="1" transform="matrix(1,0,0,1,0,0)"><path fill="rgb(255,255,255)" fill-opacity="1" d=" M6.619999885559082,7.40500020980835 C6.619999885559082,7.40500020980835 6.619999885559082,8.335000038146973 6.619999885559082,8.335000038146973 C6.619999885559082,8.335000038146973 0.009999999776482582,8.335000038146973 0.009999999776482582,8.335000038146973 C0.009999999776482582,3.7850000858306885 -2.549999952316284,-0.375 -6.619999885559082,-2.4049999713897705 C-6.619999885559082,-2.4049999713897705 -3.619999885559082,-8.335000038146973 -3.619999885559082,-8.335000038146973 C2.380000114440918,-5.324999809265137 6.300000190734863,0.6949999928474426 6.619999885559082,7.40500020980835 C6.619999885559082,7.40500020980835 6.619999885559082,7.40500020980835 6.619999885559082,7.40500020980835z"></path></g></g><g transform="matrix(1,0,0,1,31.9950008392334,35.665000915527344)" opacity="1" style="display: block;"><g opacity="1" transform="matrix(1,0,0,1,0,0)"><path fill="rgb(255,255,255)" fill-opacity="1" d=" M6.635000228881836,-2.4049999713897705 C2.565000057220459,-0.375 0.004999999888241291,3.7850000858306885 0.004999999888241291,8.335000038146973 C0.004999999888241291,8.335000038146973 -6.635000228881836,8.335000038146973 -6.635000228881836,8.335000038146973 C-6.635000228881836,1.274999976158142 -2.6449999809265137,-5.184999942779541 3.674999952316284,-8.335000038146973 C3.674999952316284,-8.335000038146973 6.635000228881836,-2.4049999713897705 6.635000228881836,-2.4049999713897705z"></path></g></g><g transform="matrix(1,0,0,1,44,66.322998046875)" opacity="1" style="display: block;"><g opacity="1" transform="matrix(1,0,0,1,0,0)"><path fill="rgb(255,255,255)" fill-opacity="1" d=" M8.319000244140625,-13.677000045776367 C8.319000244140625,-13.677000045776367 19.2189998626709,8.123000144958496 19.2189998626709,8.123000144958496 C13.659000396728516,11.642999649047852 7.068999767303467,13.67300033569336 -0.0010000000474974513,13.67300033569336 C-7.071000099182129,13.67300033569336 -13.66100025177002,11.642999649047852 -19.22100067138672,8.123000144958496 C-19.22100067138672,8.123000144958496 -8.321000099182129,-13.677000045776367 -8.321000099182129,-13.677000045776367 C-6.160999774932861,-11.597000122070312 -3.2309999465942383,-10.32699966430664 -0.0010000000474974513,-10.32699966430664 C3.2290000915527344,-10.32699966430664 6.169000148773193,-11.597000122070312 8.319000244140625,-13.677000045776367z"></path></g></g><g transform="matrix(1,0,0,1,64.68399810791016,27.89699935913086)" opacity="1" style="display: block;"><g opacity="1" transform="matrix(1,0,0,1,0,0)"><path fill="rgb(255,255,255)" fill-opacity="1" d=" M15.314000129699707,16.10700035095215 C15.314000129699707,16.10700035095215 -8.685999870300293,16.10700035095215 -8.685999870300293,16.10700035095215 C-8.685999870300293,11.406999588012695 -11.38599967956543,7.336999893188477 -15.315999984741211,5.367000102996826 C-15.315999984741211,5.367000102996826 -4.576000213623047,-16.10300064086914 -4.576000213623047,-16.10300064086914 C7.214000225067139,-10.192999839782715 15.314000129699707,2.006999969482422 15.314000129699707,16.10700035095215z"></path></g></g><g transform="matrix(1,0,0,1,23.31599998474121,27.89699935913086)" opacity="1" style="display: block;"><g opacity="1" transform="matrix(1,0,0,1,0,0)"><path fill="rgb(255,255,255)" fill-opacity="1" d=" M4.584000110626221,-16.10300064086914 C4.584000110626221,-16.10300064086914 15.314000129699707,5.367000102996826 15.314000129699707,5.367000102996826 C11.383999824523926,7.336999893188477 8.684000015258789,11.406999588012695 8.684000015258789,16.10700035095215 C8.684000015258789,16.10700035095215 -15.315999984741211,16.10700035095215 -15.315999984741211,16.10700035095215 C-15.315999984741211,2.006999969482422 -7.216000080108643,-10.192999839782715 4.584000110626221,-16.10300064086914z"></path></g></g><g transform="matrix(1,0,0,1,44,44)" opacity="1" style="display: block;"><g opacity="1" transform="matrix(1,0,0,1,0,0)"><path fill="rgb(255,255,255)" fill-opacity="1" d=" M0,-4 C2.140000104904175,-4 3.890000104904175,-2.319999933242798 4,-0.20000000298023224 C4,-0.20000000298023224 4,0 4,0 C4,0 4,0.20000000298023224 4,0.20000000298023224 C3.890000104904175,2.319999933242798 2.140000104904175,4 0,4 C-2.2100000381469727,4 -4,2.2100000381469727 -4,0 C-4,-2.2100000381469727 -2.2100000381469727,-4 0,-4z"></path></g></g></g></svg>
 `;
 
-function getDOMPoint(dom) {
-    let t = 0;
-    var l = 0;
-    // 判断是否有父容器，如果存在则累加其边距
-    while (dom !== document.body) {
-        t += dom.offsetTop; // 叠加父容器的上边距
-        l += dom.offsetLeft; // 叠加父容器的左边距
-        //if(dom.style.borderLeftWidth) l += Number(dom.style.borderLeftWidth);
-        //if(dom.style.borderTopWidth) t += Number(dom.style.borderTopWidth);
-        dom = dom.parentNode;
-    }
-    return { x: l, y: t };
-}
-/**
- * @description 查看当前的鼠标位置是否在父元素和绝对定位的子元素的组合范围内，如果超出则返回false
- * @param parent
- * @param topChild
- * @param pageX
- * @param pageY
- * @returns {boolean}
- */
-function checkIsMouseInRange(parent, topChild, pageX, pageY) {
-    let { x, y } = getDOMPoint(parent);
-    let allTop = y - parseInt(topChild.style.bottom) - topChild.clientHeight;
-    let allBottom = y + parent.clientHeight;
-    let allLeft = x + Math.round(parent.clientWidth / 2) - Math.round(topChild.clientWidth / 2);
-    let allRight = x + Math.round(parent.clientWidth / 2) + Math.round(topChild.clientWidth / 2);
-    let parentLeft = x;
-    let parentRight = x + parent.clientWidth;
-    if (pageX >= allLeft && pageX <= allRight && pageY <= y && pageY >= allTop)
-        return true;
-    if (pageX >= parentLeft && pageX <= parentRight && pageY >= y && pageY <= allBottom)
-        return true;
-    return false;
-}
-
 class Controller extends BaseEvent {
     constructor(container) {
         super();
@@ -237,13 +652,13 @@ class Controller extends BaseEvent {
                                 <div class="${styles["video-volume-dot"]}" style="bottom: 100%"></div>
                             </div>
                         </div>
-                        ${volumeSVG}
+                        <div class="${styles["video-icon"]}">${volumeSVG}</div>
                     </div>
                     <div class="${styles["video-subsettings"]} ${styles["video-controller"]}" aria-label="设置">
-                        ${settingSVG}
+                        <div class="${styles["video-icon"]}">${settingSVG}</div>
                     </div>
                     <div class="${styles["video-fullscreen"]} ${styles["video-controller"]}" aria-label="全屏">
-                        ${fullScreenSVG}
+                        <div class="${styles["video-icon"]}">${fullScreenSVG}</div> 
                     </div>
                 </div>
             </div>
@@ -287,7 +702,7 @@ class Controller extends BaseEvent {
         this.volumeBtn.onmouseenter = (e) => {
             this.volumeSet.style.display = "block";
             let ctx = this;
-            document.body.onmousemove = (e) => {
+            document.onmousemove = (e) => {
                 ctx.handleMouseMove(e, "volume");
             };
         };
@@ -319,8 +734,8 @@ class Controller extends BaseEvent {
                 this.volumeDot.style.bottom = this.volumeProgress.clientHeight * scale - 6 + "px";
                 this.video.volume = scale;
             };
-            document.body.onmouseup = () => {
-                document.body.onmousemove = null;
+            document.onmouseup = () => {
+                document.onmousemove = null;
             };
             e.preventDefault();
         };
@@ -380,6 +795,7 @@ class Controller extends BaseEvent {
             if (!checkIsMouseInRange(ctx.resolvePower, ctx.resolvePowerSet, pX, pY)) {
                 ctx.resolvePowerSet.style.display = "none";
                 document.body.onmousemove = null;
+                document.onmousemove = null;
             }
         }
     }
@@ -468,650 +884,6 @@ class LoadingMask {
     }
 }
 
-const televisionSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 18" width="18" height="18" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; transform: translate3d(0px, 0px, 0px);">
-<defs>
-  <clipPath id="__lottie_element_55">
-    <rect width="18" height="18" x="0" y="0"></rect>
-  </clipPath>
-</defs>
-<g clip-path="url(#__lottie_element_55)">
-  <g transform="matrix(0.9883429408073425,-0.7275781631469727,0.6775955557823181,0.920446515083313,7.3224687576293945,-0.7606706619262695)" opacity="1" style="display: block;">
-    <g opacity="1" transform="matrix(0.9937776327133179,-0.11138220876455307,0.11138220876455307,0.9937776327133179,-2.5239999294281006,1.3849999904632568)">
-      <path fill="rgb(51,51,51)" fill-opacity="1" d=" M0.75,-1.25 C0.75,-1.25 0.75,1.25 0.75,1.25 C0.75,1.663925051689148 0.4139249920845032,2 0,2 C0,2 0,2 0,2 C-0.4139249920845032,2 -0.75,1.663925051689148 -0.75,1.25 C-0.75,1.25 -0.75,-1.25 -0.75,-1.25 C-0.75,-1.663925051689148 -0.4139249920845032,-2 0,-2 C0,-2 0,-2 0,-2 C0.4139249920845032,-2 0.75,-1.663925051689148 0.75,-1.25z">
-      </path>
-    </g>
-  </g>
-  <g transform="matrix(1.1436611413955688,0.7535901665687561,-0.6317168474197388,0.9587040543556213,16.0070743560791,2.902894973754883)" opacity="1" style="display: block;">
-    <g opacity="1" transform="matrix(0.992861807346344,0.1192704513669014,-0.1192704513669014,0.992861807346344,-2.5239999294281006,1.3849999904632568)">
-      <path fill="rgb(51,51,51)" fill-opacity="1" d=" M0.75,-1.25 C0.75,-1.25 0.75,1.25 0.75,1.25 C0.75,1.663925051689148 0.4139249920845032,2 0,2 C0,2 0,2 0,2 C-0.4139249920845032,2 -0.75,1.663925051689148 -0.75,1.25 C-0.75,1.25 -0.75,-1.25 -0.75,-1.25 C-0.75,-1.663925051689148 -0.4139249920845032,-2 0,-2 C0,-2 0,-2 0,-2 C0.4139249920845032,-2 0.75,-1.663925051689148 0.75,-1.25z">
-      </path>
-    </g>
-  </g>
-  <g transform="matrix(1,0,0,1,8.890999794006348,8.406000137329102)" opacity="1" style="display: block;">
-    <g opacity="1" transform="matrix(1,0,0,1,0.09099999815225601,1.1009999513626099)">
-      <path fill="rgb(255,255,255)" fill-opacity="1" d=" M7,-3 C7,-3 7,3 7,3 C7,4.379749774932861 5.879749774932861,5.5 4.5,5.5 C4.5,5.5 -4.5,5.5 -4.5,5.5 C-5.879749774932861,5.5 -7,4.379749774932861 -7,3 C-7,3 -7,-3 -7,-3 C-7,-4.379749774932861 -5.879749774932861,-5.5 -4.5,-5.5 C-4.5,-5.5 4.5,-5.5 4.5,-5.5 C5.879749774932861,-5.5 7,-4.379749774932861 7,-3z">
-      </path>
-      <path stroke-linecap="butt" stroke-linejoin="miter" fill-opacity="0" stroke-miterlimit="4" stroke="rgb(51,51,51)" stroke-opacity="1" stroke-width="1.5" d=" M7,-3 C7,-3 7,3 7,3 C7,4.379749774932861 5.879749774932861,5.5 4.5,5.5 C4.5,5.5 -4.5,5.5 -4.5,5.5 C-5.879749774932861,5.5 -7,4.379749774932861 -7,3 C-7,3 -7,-3 -7,-3 C-7,-4.379749774932861 -5.879749774932861,-5.5 -4.5,-5.5 C-4.5,-5.5 4.5,-5.5 4.5,-5.5 C5.879749774932861,-5.5 7,-4.379749774932861 7,-3z">
-      </path>
-    </g>
-  </g>
-  <g transform="matrix(1,0,0,1,8.89900016784668,8.083999633789062)" opacity="1" style="display: block;">
-    <g opacity="1" transform="matrix(1,0,0,1,-2.5239999294281006,1.3849999904632568)">
-      <path fill="rgb(51,51,51)" fill-opacity="1" d=" M0.875,-1.125 C0.875,-1.125 0.875,1.125 0.875,1.125 C0.875,1.607912540435791 0.48291251063346863,2 0,2 C0,2 0,2 0,2 C-0.48291251063346863,2 -0.875,1.607912540435791 -0.875,1.125 C-0.875,1.125 -0.875,-1.125 -0.875,-1.125 C-0.875,-1.607912540435791 -0.48291251063346863,-2 0,-2 C0,-2 0,-2 0,-2 C0.48291251063346863,-2 0.875,-1.607912540435791 0.875,-1.125z">
-      </path>
-    </g>
-  </g>
-  <g transform="matrix(1,0,0,1,14.008999824523926,8.083999633789062)" opacity="1" style="display: block;">
-    <g opacity="1" transform="matrix(1,0,0,1,-2.5239999294281006,1.3849999904632568)">
-      <path fill="rgb(51,51,51)" fill-opacity="1" d=" M0.8999999761581421,-1.100000023841858 C0.8999999761581421,-1.100000023841858 0.8999999761581421,1.100000023841858 0.8999999761581421,1.100000023841858 C0.8999999761581421,1.596709966659546 0.4967099726200104,2 0,2 C0,2 0,2 0,2 C-0.4967099726200104,2 -0.8999999761581421,1.596709966659546 -0.8999999761581421,1.100000023841858 C-0.8999999761581421,1.100000023841858 -0.8999999761581421,-1.100000023841858 -0.8999999761581421,-1.100000023841858 C-0.8999999761581421,-1.596709966659546 -0.4967099726200104,-2 0,-2 C0,-2 0,-2 0,-2 C0.4967099726200104,-2 0.8999999761581421,-1.596709966659546 0.8999999761581421,-1.100000023841858z">
-      </path>
-    </g>
-  </g>
-</g>
-</svg>`;
-
-// 进度条组件
-class Progress extends BaseEvent {
-    constructor(container) {
-        super();
-        this.mouseDown = false;
-        this.container = container;
-        this.init();
-        this.initEvent();
-    }
-    get template() {
-        return this.template_;
-    }
-    init() {
-        this.template_ = `
-            <div class="${styles["video-progress"]}">
-                <div class="${styles["video-pretime"]}">00:00</div>
-                <div class="${styles["video-buffered"]}"></div>
-                <div class="${styles["video-completed"]} "></div>
-                <div class="${styles["video-dot"]} ${styles["video-dot-hidden"]}">
-                    ${televisionSVG}
-                </div>
-            </div>
-        `;
-    }
-    initEvent() {
-        // 初始化注册变量
-        this.on("mounted", () => {
-            this.progress = this.container.querySelector(`.${styles["video-controls"]} .${styles["video-progress"]}`);
-            this.pretime = this.progress.children[0];
-            this.bufferedProgress = this.progress.children[1];
-            this.completedProgress = this.progress.children[2];
-            this.dot = this.progress.children[3];
-            this.video = this.container.querySelector("video");
-            this.initProgressEvent();
-        });
-        this.on("timeupdate", (current) => {
-            let scaleCurr = (this.video.currentTime / this.video.duration) * 100;
-            let scaleBuffer = ((this.video.buffered.end(0) + this.video.currentTime) / this.video.duration) * 100;
-            this.completedProgress.style.width = scaleCurr + "%";
-            this.dot.style.left = this.progress.offsetWidth * (scaleCurr / 100) - 5 + "px";
-            this.bufferedProgress.style.width = scaleBuffer + "%";
-        });
-        this.on("loadedmetadata", (summary) => { });
-    }
-    initProgressEvent() {
-        this.progress.onmouseenter = () => {
-            console.log("progress onmouseenter");
-            this.dot.className = `${styles["video-dot"]}`;
-        };
-        this.progress.onmouseleave = () => {
-            // 如果没有一直按着，离开的时候就隐藏
-            if (!this.mouseDown) {
-                this.dot.className = `${styles["video-dot"]} ${styles["video-dot-hidden"]}`;
-            }
-        };
-        // 点击进度条 切换播放位置，点的位置，进度条的位置
-        this.progress.onclick = (e) => {
-            // 防止dot在progress上移动并放开的时候触发 process.onclick
-            if (e.target == this.dot) {
-                return;
-            }
-            // 算出位置的百分比
-            // 此处有遗留bug
-            let scale = e.offsetX / this.progress.offsetWidth;
-            console.log("scale", e, scale, e.offsetX, this.progress.offsetWidth);
-            if (scale < 0) {
-                console.log("scale == 0");
-                scale = 0;
-            }
-            else if (scale > 1) {
-                console.log("scale == 1");
-                scale = 1;
-            }
-            this.dot.style.left = this.progress.offsetWidth * scale - 5 + "px";
-            this.bufferedProgress.style.width = scale * 100 + "%";
-            this.completedProgress.style.width = scale * 100 + "%";
-            // 设置播放位置
-            this.video.currentTime = Math.floor(scale * this.video.duration);
-            if (this.video.paused)
-                this.video.play();
-        };
-        // progress上面移动  时展示当前的时间
-        this.progress.onmousemove = (e) => {
-            let scale = e.offsetX / this.progress.offsetWidth;
-            if (scale < 0) {
-                scale = 0;
-            }
-            else if (scale > 1) {
-                scale = 1;
-            }
-            let pretime = formatTime(scale * this.video.duration);
-            this.pretime.style.display = "block";
-            this.pretime.innerHTML = pretime;
-            this.pretime.style.left = e.offsetX - 17 + "px";
-            e.preventDefault();
-        };
-        this.progress.onmouseleave = (e) => {
-            this.pretime.style.display = "none";
-        };
-        // 点击dot的事件
-        this.dot.addEventListener("mousedown", (e) => {
-            let left = this.completedProgress.offsetWidth; //点击时，相对于进度条的位置
-            let mouseX = e.pageX; // 点击时相对于页面的位置
-            this.mouseDown = true;
-            document.onmousemove = (e) => {
-                // e.pageX - mouseX + left   移动过的距离 + 原本的距离
-                let scale = (e.pageX - mouseX + left) / this.progress.offsetWidth;
-                if (scale < 0) {
-                    scale = 0;
-                }
-                else if (scale > 1) {
-                    scale = 1;
-                }
-                this.dot.style.left = this.progress.offsetWidth * scale - 5 + "px";
-                this.bufferedProgress.style.width = scale * 100 + "%";
-                this.completedProgress.style.width = scale * 100 + "%";
-                this.video.currentTime = Math.floor(scale * this.video.duration);
-                if (this.video.paused)
-                    this.video.play();
-                e.preventDefault();
-            };
-            document.onmouseup = (e) => {
-                document.onmousemove = document.onmouseup = null;
-                this.mouseDown = false;
-                e.preventDefault();
-            };
-            e.preventDefault();
-        });
-    }
-}
-
-// 音乐播放器的工具栏组件 ( progress + controller )
-class ToolBar extends BaseEvent {
-    constructor(container) {
-        super();
-        this.container = container;
-        this.init();
-        this.initComponent();
-        this.initTemplate();
-        this.initEvent();
-    }
-    get template() {
-        return this.template_;
-    }
-    ;
-    init() { }
-    // 注册 进度条 和 控制器
-    initComponent() {
-        this.progress = new Progress(this.container); // 进度条
-        this.controller = new Controller(this.container); //下面的控制器
-    }
-    // 组合 进度条 和 控制器的template
-    initTemplate() {
-        let div = document.createElement("div");
-        div.className = `${styles["video-controls"]} ${styles["video-controls-hidden"]}`;
-        div.innerHTML += this.progress.template;
-        div.innerHTML += this.controller.template;
-        this.template_ = div;
-    }
-    // 显示和隐藏toolbar
-    showToolBar(e) {
-        //工具栏的总容器
-        this.container.querySelector(`.${styles["video-controls"]}`).className = `${styles["video-controls"]}`;
-        if (e.target !== this.video) ;
-        else {
-            // 一个防抖
-            this.timer = window.setTimeout(() => {
-                this.hideToolBar();
-            }, 3000);
-        }
-    }
-    hideToolBar() {
-        this.container.querySelector(`.${styles["video-controls"]}`).className = `${styles["video-controls"]} ${styles["video-controls-hidden"]}`;
-    }
-    initEvent() {
-        this.on("showtoolbar", (e) => {
-            // 防抖
-            if (this.timer) {
-                clearTimeout(this.timer);
-                this.timer = null;
-            }
-            this.showToolBar(e);
-        });
-        this.on("hidetoolbar", () => {
-            this.hideToolBar();
-        });
-        this.on("loadedmetadata", (summary) => {
-            this.controller.emit("loadedmetadata", summary);
-            this.progress.emit("loadedmetadata", summary);
-        });
-        this.on("timeupdate", (current) => {
-            this.controller.emit("timeupdate", current);
-            this.progress.emit("timeupdate", current);
-        });
-        this.on("mounted", () => {
-            this.video = this.container.querySelector("video");
-            this.controller.emit("mounted");
-            this.progress.emit("mounted");
-        });
-        this.on("play", () => {
-            this.controller.emit("play");
-        });
-        this.on("pause", () => {
-            this.controller.emit("pause");
-        });
-    }
-}
-
-// 获取文件后缀名
-function getFileExtension(file) {
-    let name;
-    if (typeof file === "string") {
-        name = file;
-    }
-    else {
-        name = file.name;
-    }
-    for (let i = name.length - 1; i >= 0; i--) {
-        if (name[i] === ".") {
-            return name.slice(i + 1, name.length);
-        }
-    }
-    return null;
-}
-
-class Mp4Player {
-    constructor(player) {
-        this.player = player;
-        // mp4直接将 playerOptions.url 中的内容进行赋值就可播放
-        this.player.video.src = this.player.playerOptions.url;
-        this.initEvent();
-    }
-    initEvent() {
-        this.player.toolbar.emit("mounted");
-        this.player.emit("mounted", this);
-        this.player.container.onclick = (e) => {
-            if (e.target == this.player.video) {
-                if (this.player.video.paused) {
-                    this.player.video.play();
-                }
-                else if (this.player.video.played) {
-                    this.player.video.pause();
-                }
-            }
-        };
-        this.player.container.addEventListener("mouseenter", (e) => {
-            this.player.toolbar.emit("showtoolbar", e);
-        });
-        this.player.container.addEventListener("mousemove", (e) => {
-            this.player.toolbar.emit("showtoolbar", e);
-        });
-        this.player.container.addEventListener("mouseleave", (e) => {
-            this.player.toolbar.emit("hidetoolbar");
-        });
-        this.player.video.addEventListener("loadedmetadata", (e) => {
-            this.player.playerOptions.autoplay && this.player.video.play();
-            this.player.toolbar.emit("loadedmetadata", this.player.video.duration);
-        });
-        this.player.video.addEventListener("timeupdate", (e) => {
-            this.player.toolbar.emit("timeupdate", this.player.video.currentTime);
-        });
-        // 当视频可以再次播放的时候就移除loading和error的mask，通常是为了应对在播放的过程中出现需要缓冲或者播放错误这种情况从而需要展示对应的mask
-        this.player.video.addEventListener("play", (e) => {
-            this.player.loadingMask.removeLoadingMask();
-            this.player.errorMask.removeErrorMask();
-            this.player.toolbar.emit("play");
-        });
-        this.player.video.addEventListener("pause", (e) => {
-            this.player.toolbar.emit("pause");
-        });
-        this.player.video.addEventListener("waiting", (e) => {
-            this.player.loadingMask.removeLoadingMask();
-            this.player.errorMask.removeErrorMask();
-            this.player.loadingMask.addLoadingMask();
-        });
-        //当浏览器请求视频发生错误的时候
-        this.player.video.addEventListener("stalled", (e) => {
-            console.log("视频加载发生错误");
-            this.player.loadingMask.removeLoadingMask();
-            this.player.errorMask.removeErrorMask();
-            this.player.errorMask.addErrorMask();
-        });
-        this.player.video.addEventListener("error", (e) => {
-            this.player.loadingMask.removeLoadingMask();
-            this.player.errorMask.removeErrorMask();
-            this.player.errorMask.addErrorMask();
-        });
-        this.player.video.addEventListener("abort", (e) => {
-            this.player.loadingMask.removeLoadingMask();
-            this.player.errorMask.removeErrorMask();
-            this.player.errorMask.addErrorMask();
-        });
-    }
-}
-
-const FactoryMaker = (function () {
-    // 用自执行函数构建作用域
-    class FactoryMaker {
-        constructor() {
-            this.__class_factoryMap = {};
-            this.__single_factoryMap = {};
-            this.__single_instanceMap = {};
-        }
-        // 每次调用都返回 一个 新的 new 实例
-        getClassFactory(classConstructor) {
-            let factory = this.__class_factoryMap[classConstructor.name];
-            let ctx = this;
-            // 如果map当中没有存储过
-            if (!factory) {
-                factory = function (context) {
-                    if (!context)
-                        context = {};
-                    return {
-                        create(...args) {
-                            return ctx.merge(classConstructor, context, ...args);
-                        }
-                    };
-                };
-            }
-            return factory;
-        }
-        // 单一实例 单例模式
-        getSingleFactory(classConstructor) {
-            let factory = this.__single_factoryMap[classConstructor.name];
-            let ctx = this;
-            if (!factory) {
-                // 调用 getSingleFactory() 时传入的 context 会传递到new时的第一个参数的 context中
-                factory = function (context) {
-                    if (!context)
-                        context = {};
-                    return {
-                        getInstance(...args) {
-                            let instance = ctx.__single_instanceMap[classConstructor.name];
-                            if (!instance) {
-                                instance = new classConstructor({ context }, ...args);
-                                ctx.__single_instanceMap[classConstructor.name] = instance;
-                            }
-                            return instance;
-                        },
-                    };
-                };
-            }
-            return factory;
-        }
-        merge(classConstructor, context, ...args) {
-            // 在调用 getClassFactory 返回的 create 函数的时候，会在这里进行merge，如果写入的context不存在就跳过，如果存在在判断是否需要覆写，如果不覆写，优先ne context中的内容
-            let extensionObjejct = context[classConstructor.name];
-            if (extensionObjejct) {
-                // 如果获取到的上下文的属性classConstructor.name对应的对象上具有覆写（override）属性，则意味着需要覆写classConstructor上对应的属性
-                if (extensionObjejct.override) {
-                    let instance = new classConstructor({ context }, ...args);
-                    let override = new extensionObjejct.instance({
-                        context,
-                        parent: instance // 重载的父类是这个
-                    });
-                    for (let props in override) {
-                        if (instance.hasOwnProperty(props)) {
-                            instance[props] = parent[props];
-                        }
-                    }
-                }
-                else {
-                    // 如果不需要覆写，则意味着直接拿context中传入的构造函数来替换这个构造函数
-                    return new extensionObjejct.instance({
-                        context
-                    });
-                }
-            }
-            else {
-                return new classConstructor({ context }, ...args);
-            }
-        }
-    }
-    return new FactoryMaker();
-})();
-// getSingleFactory
-// getSingleFactory的返回值是一个函数
-// getSingleFactory返回的函数运行结果是一个 有着 getInstance 属性的 对象FactoryFunction。 再通过调用getInstance函数，就可以创建对应的 实例
-// 使用：
-// XHRLoaderFactory = FactoryMaker.getSingleFactory(XHRLoader)
-// this.xhrLoader = XHRLoaderFactory({}).getInstance();
-// 得到的 xhrLoader 就是 XHRLoader类的实例
-
-class HTTPRequest {
-    constructor(config) {
-        this.url = "";
-        this.sendRequestTime = new Date().getTime();
-        this.url = config.url;
-        this.header = config.header;
-        this.method = config.method;
-        this.responseType = config.responseType;
-    }
-}
-
-// 让外界调用 loadManifest 方法 发起请求
-class XHRLoader {
-    constructor(ctx, ...args) {
-        this.config = {};
-        this.config = ctx.context;
-        this.setup();
-    }
-    setup() {
-    }
-    // 调用这个方法发起 xml请求
-    load(config) {
-        // 传入一个 config， config包括请求的结果处理函数，以及请求request参数，间接的传给xhr，增加代码的灵活度
-        let request = config.request;
-        let xhr = new XMLHttpRequest();
-        request.xhr = xhr;
-        if (request.header) {
-            for (let key in request.header) {
-                xhr.setRequestHeader(key, request.header[key]);
-            }
-        }
-        xhr.open(request.method || "get", request.url);
-        xhr.responseType = request.responseType || "arraybuffer";
-        xhr.onreadystatechange = (e) => {
-            if (xhr.readyState === 4) {
-                if ((xhr.status >= 200 && xhr.status < 300) || (xhr.status === 304)) {
-                    config.success && config.success.call(xhr, xhr.response);
-                }
-                else {
-                    config.error && config.error.call(xhr, e);
-                }
-            }
-        };
-        xhr.onabort = (e) => {
-            config.abort && config.abort.call(xhr, e);
-        };
-        xhr.onerror = (e) => {
-            config.error && config.error.call(xhr, e);
-        };
-        xhr.onprogress = (e) => {
-            config.progress && config.progress.call(xhr, e);
-        };
-        xhr.send();
-    }
-}
-const XHRLoaderFactory = FactoryMaker.getSingleFactory(XHRLoader);
-
-class EventBus {
-    constructor(ctx, ...args) {
-        this.config = {};
-        // _events 对象， 对象键为 string ，值为 array， array由回调函数和，范围对象构成
-        this.__events = {};
-        this.config = ctx.context;
-        this.setup();
-    }
-    setup() {
-    }
-    // 订阅 scope 是回调函数执行的上下文 在后期执行时调用 call(scope,...args)
-    on(type, listener, scope) {
-        if (!this.__events[type]) {
-            this.__events[type] = [
-                {
-                    cb: listener,
-                    scope: scope
-                }
-            ];
-            console.log(this.__events[type]);
-            return;
-        }
-        if (this.__events[type].filter(event => {
-            return event.scope === scope && event.cb === listener;
-        }).length > 0) {
-            console.log(scope, listener);
-            throw new Error("请勿重复绑定监听器");
-        }
-        this.__events[type].push({
-            cb: listener,
-            scope
-        });
-    }
-    // 取消订阅
-    off(type, listener, scope) {
-        if (!this.__events[type] || this.__events[type].filter(event => {
-            return event.scope === scope && event.cb === listener;
-        })) {
-            throw new Error("不存在该事件");
-        }
-        // filter过滤
-        this.__events[type] = this.__events[type].filter(event => {
-            return event.scope === scope && event.cb === listener;
-        });
-    }
-    // 发布
-    tigger(type, ...payload) {
-        if (this.__events[type]) {
-            this.__events[type].forEach(event => {
-                event.cb.call(event.scope, ...payload);
-            });
-        }
-    }
-}
-const EventBusFactory = FactoryMaker.getSingleFactory(EventBus);
-
-// 事件常数
-const EventConstants = {
-    MANIFEST_LOADED: "manifestLoaded",
-    MANIFEST_PARSE_COMPLETED: "manifestParseCompleted",
-    SOURCE_ATTACHED: "sourceAttached",
-    SEGMENT_LOADED: "segmentLoaded",
-    BUFFER_APPENDED: "bufferAppended",
-    SEGMENT_CONSUMED: "segmentConsumed",
-    MEDIA_PLAYBACK_FINISHED: "mediaPlaybackFinished",
-    FIRST_REQUEST_COMPLETED: "firstRequestCompleted",
-    SEGMENT_REQUEST: "segmentRequest"
-};
-
-// urlLoader 在发起xhr请求之前配置相关参数
-class URLLoader {
-    constructor(ctx, ...args) {
-        this.config = {};
-        this.xhrArray = [];
-        this.config = ctx.context;
-        this.setup();
-    }
-    // 这个函数调用 xhrLoader.loadManifest 发起请求
-    _loadManifest(config) {
-        this.xhrLoader.load(config);
-    }
-    _loadSegment(config) {
-        this.xhrLoader.load(config);
-    }
-    setup() {
-        // 拿到的instance就是 xhrloader 的实例
-        this.xhrLoader = XHRLoaderFactory({}).getInstance();
-        this.eventBus = EventBusFactory({}).getInstance();
-    }
-    // 每调用一次load函数就发送一次请求
-    load(config, type) {
-        //一个HTTPRequest对象才对应一个请求
-        let request = new HTTPRequest(config);
-        let ctx = this;
-        this.xhrArray.push(request);
-        if (type === "Manifest") {
-            ctx._loadManifest({
-                request: request,
-                success: function (data) {
-                    request.getResponseTime = new Date().getTime();
-                    console.log(this, data);
-                    // 在请求完成之后，触发 MANIFEST_LOADED 的事件
-                    ctx.eventBus.tigger(EventConstants.MANIFEST_LOADED, data);
-                },
-                error: function (error) {
-                    console.log(error);
-                },
-                load: function () {
-                    ctx.deleteRequestFromArray(request, ctx.xhrArray);
-                },
-                abort: function () {
-                    ctx.deleteRequestFromArray(request, ctx.xhrArray);
-                }
-            });
-        }
-        else if (type === "Segment") {
-            return new Promise((resolve, reject) => {
-                ctx._loadSegment({
-                    request: request,
-                    success: function (data) {
-                        resolve(data);
-                    },
-                    error: function (error) {
-                        reject(error);
-                    },
-                    load: function () {
-                        ctx.deleteRequestFromArray(request, ctx.xhrArray);
-                    },
-                    abort: function () {
-                        ctx.deleteRequestFromArray(request, ctx.xhrArray);
-                    }
-                });
-            });
-        }
-    }
-    // abort全部请求
-    abortAllXHR() {
-        this.xhrArray.forEach(request => {
-            if (request.xhr) {
-                request.xhr.abort();
-            }
-        });
-    }
-    // 删掉某个请求
-    deleteRequestFromArray(request, xhrArray) {
-        let index = xhrArray.indexOf(request);
-        if (index !== -1) {
-            xhrArray.splice(index, 1);
-        }
-    }
-}
-const URLLoaderFactory = FactoryMaker.getSingleFactory(URLLoader);
-
-var DomNodeTypes;
-(function (DomNodeTypes) {
-    DomNodeTypes[DomNodeTypes["ELEMENT_NODE"] = 1] = "ELEMENT_NODE";
-    DomNodeTypes[DomNodeTypes["TEXT_NODE"] = 3] = "TEXT_NODE";
-    DomNodeTypes[DomNodeTypes["CDATA_SECTION_NODE"] = 4] = "CDATA_SECTION_NODE";
-    DomNodeTypes[DomNodeTypes["COMMENT_NODE"] = 8] = "COMMENT_NODE";
-    DomNodeTypes[DomNodeTypes["DOCUMENT_NODE"] = 9] = "DOCUMENT_NODE";
-})(DomNodeTypes || (DomNodeTypes = {}));
-
 //  格式化播放时间工具
 function addZero(num) {
     return num > 9 ? "" + num : "0" + num;
@@ -1181,1251 +953,6 @@ function parseDuration(pt) {
         minutes,
         seconds,
     };
-}
-
-/**
- * @description 该类仅用于处理MPD文件中具有SegmentTemplate此种情况,
- */
-class SegmentTemplateParser {
-    // private dashParser: DashParser
-    constructor(ctx, ...args) {
-        this.config = ctx.context;
-        this.setup();
-    }
-    setup() {
-    }
-    /**
-     * @param {(Mpd | Period | AdaptationSet)} Mpd
-     * @memberof SegmentTemplateParser
-     * @description 处理 InitializationURL，MediaURL 的函数 将其从模板转换为真实的地址，并放到Representation上面
-     */
-    parse(Mpd) {
-        // DashParser.setDurationForRepresentation(Mpd);
-        // this.setSegmentDurationForRepresentation(Mpd as Mpd);
-        this.parseNodeSegmentTemplate(Mpd);
-    }
-    /**
-     * @param {Mpd} Mpd
-     * @memberof SegmentTemplateParser
-     * @description 调用 处理 InitializationURL，MediaURL 的函数 将其从模板转换为真实的地址
-     */
-    parseNodeSegmentTemplate(Mpd) {
-        Mpd["Period_asArray"].forEach(Period => {
-            Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
-                AdaptationSet["Representation_asArray"].forEach(Representation => {
-                    let SegmentTemplate = Representation["SegmentTemplate"];
-                    if (SegmentTemplate) {
-                        this.generateInitializationURL(SegmentTemplate, Representation);
-                        this.generateMediaURL(SegmentTemplate, Representation);
-                    }
-                });
-            });
-        });
-    }
-    /**
-     * @param {SegmentTemplate} SegmentTemplate
-     * @param {Representation} parent
-     * @memberof SegmentTemplateParser
-     * @description 通过正则和替换 得出 initializationURL
-     */
-    generateInitializationURL(SegmentTemplate, parent) {
-        let templateReg = /\$(.+?)\$/ig;
-        let initialization = SegmentTemplate.initialization;
-        let r;
-        let formatArray = new Array();
-        let replaceArray = new Array();
-        if (templateReg.test(initialization)) {
-            templateReg.lastIndex = 0;
-            while (r = templateReg.exec(initialization)) {
-                formatArray.push(r[0]);
-                // console.log("ri", r, formatArray)
-                if (r[1] === "Number") {
-                    r[1] = "1";
-                }
-                else if (r[1] === "RepresentationID") {
-                    r[1] = parent.id;
-                }
-                replaceArray.push(r[1]);
-            }
-            let index = 0;
-            while (index < replaceArray.length) {
-                initialization = initialization.replace(formatArray[index], replaceArray[index]);
-                index++;
-            }
-        }
-        parent.initializationURL = initialization;
-    }
-    /**
-     * @param {SegmentTemplate} SegmentTemplate
-     * @param {Representation} parent
-     * @memberof SegmentTemplateParser
-     * @description 通过正则和替换 得出 MediaURL
-     */
-    generateMediaURL(SegmentTemplate, parent) {
-        let templateReg = /\$(.+?)\$/ig; //这个正则表达式的意思是匹配字符串中所有以"$"开头和结束的部分
-        let media = SegmentTemplate.media;
-        let r; // exec返回值为数组 
-        // 索引 0 包含匹配的字符串。
-        // 索引 1 开始包含第一个捕获组（如果有的话）的匹配结果。
-        // 索引 2 开始包含第二个捕获组的匹配结果，以此类推。
-        let formatArray = new Array();
-        let replaceArray = new Array();
-        parent.mediaURL = new Array();
-        // test() 方法执行一个检索，用来查看正则表达式与指定的字符串是否匹配。返回 true 或 false。
-        if (templateReg.test(media)) {
-            templateReg.lastIndex = 0;
-            while (r = templateReg.exec(media)) {
-                console.log(r);
-                formatArray.push(r[0]); // "$Number$"
-                if (r[1] === "Number") { //如果 $ xxx $ 包含的内容为 number就换为 @number@
-                    r[1] = "@Number@";
-                }
-                else if (r[1] === "RepresentationID") {
-                    r[1] = parent.id;
-                }
-                replaceArray.push(r[1]);
-            }
-        }
-        let index = 0;
-        while (index < replaceArray.length) {
-            // 把 $ 的部分换为 @
-            media = media.replace(formatArray[index], replaceArray[index]);
-            index++;
-        }
-        // 有的mpd文件的duration是 秒，有的是 NPT
-        if (typeof parent.duration === "string" && parent.duration.startsWith("PT")) {
-            parent.duration = switchToSeconds(parseDuration(parent.duration));
-        }
-        console.log("parent.duration", parent.duration, "parent.segmentDuration", parent.segmentDuration);
-        for (let i = 1; i <= Math.ceil(parent.duration / parent.segmentDuration); i++) {
-            let s = media;
-            console.log("medias", s);
-            while (s.includes("@Number@")) {
-                s = s.replace("@Number@", `${i}`);
-            }
-            // parent.mediaURL[i] = s; 这样的话mediaURL[]的第一项是空的
-            parent.mediaURL.push(s);
-        }
-    }
-}
-const factory$7 = FactoryMaker.getSingleFactory(SegmentTemplateParser);
-
-class URLUtils {
-    constructor(ctx, ...args) {
-        this.config = ctx.contest;
-    }
-    setup() { }
-    /**
-     * @description url拼接功能
-     *
-     * @param {...string[]} urls
-     * @return {*}  {string}
-     * @memberof URLUtils
-     */
-    resolve(...urls) {
-        let index = 0;
-        let str = "";
-        while (index < urls.length) {
-            let url = urls[index];
-            // 如果url不以 / 或者 ./,../这种形式开头的话
-            if (/^(?!(\.|\/))/.test(url)) {
-                // 在末尾固定加 /
-                if (str[str.length - 1] !== '/' && str !== "") {
-                    str += '/';
-                }
-            }
-            else if (/^\/.+/.test(url)) {
-                // 如果以 / 开头 去掉开头的 /, 因为前面已经在末尾加上了
-                if (str[str.length - 1] === "/") {
-                    url = url.slice(1);
-                }
-            }
-            else if (/^(\.).+/.test(url)) ;
-            str += url;
-            index++;
-        }
-        return str;
-    }
-    // 从前到后，找到最后一个 / 之前的url
-    sliceLastURLPath(url) {
-        for (let i = url.length - 1; i >= 0; i--) {
-            if (url[i] === "/") {
-                return url.slice(0, i);
-            }
-        }
-        return url;
-    }
-}
-const factory$6 = FactoryMaker.getSingleFactory(URLUtils);
-
-// DashParser 调用 new实例 的 parse方法 会返回 对应string的 节点解析数据
-class DashParser {
-    constructor(ctx, ...args) {
-        this.config = {};
-        this.config = ctx.context;
-        this.setup();
-        this.initialEvent();
-    }
-    setup() {
-        this.segmentTemplateParser = factory$7().getInstance();
-        this.eventBus = EventBusFactory().getInstance();
-        this.URLUtils = factory$6().getInstance();
-    }
-    initialEvent() {
-        this.eventBus.on(EventConstants.SOURCE_ATTACHED, this.onSourceAttached, this);
-    }
-    string2xml(s) {
-        // DOMParser 提供将XML或HTML源代码从字符串解析成DOM文档的能力。
-        let parser = new DOMParser();
-        return parser.parseFromString(s, "text/xml");
-    }
-    // 解析请求到的xml类型的文本字符串，生成MPD对象,方便后续的解析
-    /**
-     * @description 处理请求到的Mpd字符串，parse之后 Mpd有SegmentTemplate，分辨率，持续时间，Media，initial地址，baseURL
-     * @param {string} manifest
-     * @return {*}  {(ManifestObjectNode["MpdDocument"] | ManifestObjectNode["Mpd"])}
-     * @memberof DashParser
-     */
-    parse(manifest) {
-        let xml = this.string2xml(manifest);
-        let Mpd;
-        // 将 dom类型的 xml转换成 mpd
-        if (this.config.override) {
-            Mpd = this.parseDOMChildren("Mpd", xml);
-        }
-        else {
-            Mpd = this.parseDOMChildren("MpdDocument", xml);
-        }
-        console.log("parseDOMChildren后的 Mpd资源", Mpd);
-        this.mergeNodeSegementTemplate(Mpd);
-        this.setResolvePowerForRepresentation(Mpd);
-        this.setDurationForRepresentation(Mpd);
-        this.setSegmentDurationForRepresentation(Mpd);
-        this.setBaseURLForMpd(Mpd);
-        this.segmentTemplateParser.parse(Mpd);
-        console.log("处理segmentTemplate后的mpd", Mpd);
-        return Mpd;
-    }
-    /**
-     * @param {T} name
-     * @param {Node} node
-     * @return {*}  {ManifestObjectNode[T]}
-     * @memberof DashParser
-     * @description 根据节点类型进行分类 将 Dom 类型的数据 通过递归的转换子节点，最后返回一个result的树状对象,在请求得到的数据上面加上 __children和 _asArray
-     */
-    parseDOMChildren(name, node) {
-        // 如果node的类型为文档类型 9
-        if (node.nodeType === DomNodeTypes.DOCUMENT_NODE) {
-            let result = {
-                tag: node.nodeName,
-                __children: []
-            };
-            // 
-            for (let index in node.childNodes) {
-                // 文档类型的节点一定只有一个子节点
-                if (node.childNodes[index].nodeType === DomNodeTypes.ELEMENT_NODE) {
-                    // 忽略更节电  如果在配置指定需要忽略根节点的话，也就是忽略MpdDocument节点
-                    if (!this.config.ignoreRoot) {
-                        // 递归传递
-                        result.__children[index] = this.parseDOMChildren(node.childNodes[index].nodeName, node.childNodes[index]);
-                        result[node.childNodes[index].nodeName] = this.parseDOMChildren(node.childNodes[index].nodeName, node.childNodes[index]);
-                    }
-                    else {
-                        // 文本节点，parseDOMChildren 只有一个子直接返回
-                        return this.parseDOMChildren(node.childNodes[index].nodeName, node.childNodes[index]);
-                    }
-                }
-            }
-            return result;
-        }
-        else if (node.nodeType === DomNodeTypes.ELEMENT_NODE) {
-            let result = {
-                tag: node.nodeName,
-                __children: [],
-            };
-            // 1.解析node的子节点
-            for (let index = 0; index < node.childNodes.length; index++) {
-                let child = node.childNodes[index];
-                result.__children[index] = this.parseDOMChildren(child.nodeName, child);
-                // 下面3if是将同名的节点（同类型）放到一个数组里面
-                if (!result[child.nodeName]) {
-                    result[child.nodeName] = this.parseDOMChildren(child.nodeName, child);
-                    continue;
-                }
-                if (result[child.nodeName] && !Array.isArray(result[child.nodeName])) {
-                    result[child.nodeName] = [result[child.nodeName]];
-                }
-                if (result[child.nodeName]) {
-                    result[child.nodeName].push(this.parseDOMChildren(child.nodeName, child));
-                }
-            }
-            // 将result遍历完后 将result上所有内容进行遍历, 将对应的nodename 全部转换为 nodeName__asArray模式，并全部转为对象
-            for (let key in result) {
-                if (key !== "tag" && key !== "__children") {
-                    result[key + "_asArray"] = Array.isArray(result[key]) ? [...result[key]] : [result[key]];
-                }
-            }
-            // 3.如果该Element节点中含有text节点，则需要合并为一个整体
-            result["#text_asArray"] && result["#text_asArray"].forEach(text => {
-                result.__text = result.__text || "";
-                result.__text += `${text.text}/n`;
-            });
-            // 2.解析node上挂载的属性
-            for (let prop of node.attributes) {
-                if (prop.name === "media") {
-                    console.log(prop);
-                }
-                result[prop.name] = prop.value;
-            }
-            return result; //最终返回的result中有tag 有nodename组成的数组，有属性
-        }
-        else if (node.nodeType === DomNodeTypes.TEXT_NODE) {
-            return {
-                tag: "#text",
-                text: node.nodeValue
-            };
-        }
-    }
-    ;
-    /**
-     * @param {Mpd} Mpd MPDdom资源文件
-     * @memberof DashParser
-     * @description 将 SegementTemplate 放到子节点当中， 在转换好的 树状dom文件中 找到 SegmentTemplate 调用下面的mergeNode把一层层的SegmentTemplate汇总起来
-     */
-    mergeNodeSegementTemplate(Mpd) {
-        let segmentTemplate = null;
-        Mpd["Period_asArray"].forEach(Period => {
-            if (Period["SegmentTemplate_asArray"]) {
-                // 取[0]是因为他们 template只能在第一位
-                segmentTemplate = Period["SegmentTemplate_asArray"][0];
-            }
-            Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
-                let template = segmentTemplate;
-                // 先判断上面层中有没有segmentTemplate，有就merge
-                if (segmentTemplate) {
-                    this.mergeNode(AdaptationSet, segmentTemplate);
-                }
-                // 然后处理当前层的 SegmentTemplate， 赋值給segmentTemplate
-                if (AdaptationSet["SegmentTemplate_asArray"]) {
-                    segmentTemplate = AdaptationSet["SegmentTemplate_asArray"][0];
-                }
-                // 这一步再把 segmentTemplate 放到 Representation上面
-                AdaptationSet["Representation_asArray"].forEach(Representation => {
-                    if (segmentTemplate) {
-                        this.mergeNode(Representation, segmentTemplate);
-                    }
-                });
-                segmentTemplate = template;
-            });
-        });
-    }
-    /**
-     * @param {FactoryObject} node 目标
-     * @param {FactoryObject} compare 被合并的
-     * @memberof DashParser
-     * @description 用来合并节点的内容 合并规则：有相同tag时 有的属性按 node，没有的属性按compare，node上面没有时，全用compare
-     */
-    mergeNode(node, compare) {
-        // 合并规则：有相同tag时 有的属性按 node，没有的属性按compare，
-        //          node上面没有时，全用compare
-        // 先判断目标上面有没有这个东西， 有的话 原有的属性按原来的，新的属性按compare的
-        if (node[compare.tag]) {
-            let target = node[`${compare.tag}_asArray`];
-            target.forEach(element => {
-                for (let key in compare) {
-                    if (!element.hasOwnProperty(key)) {
-                        element[key] = compare[key];
-                    }
-                }
-            });
-        }
-        else {
-            // 如果目标上没有的话，就直接赋值过去
-            node[compare.tag] = compare;
-            node.__children = node.__children || [];
-            node.__children.push(compare);
-            node[`${compare.tag}__asArray`] = [compare];
-        }
-    }
-    // 获取播放的总时间
-    getTotalDuration(Mpd) {
-        let totalDuration = 0;
-        let MpdDuration = -1;
-        if (Mpd.mediaPresentationDuration) {
-            console.log(Mpd);
-            MpdDuration = switchToSeconds(parseDuration(Mpd.mediaPresentationDuration));
-            console.log("MpdDuration", MpdDuration);
-        }
-        // MPD文件的总时间要么是由Mpd标签上的availabilityStartTime指定，要么是每一个Period上的duration之和
-        if (MpdDuration < 0) {
-            Mpd.children.forEach(Period => {
-                if (Period.duration) {
-                    totalDuration += switchToSeconds(parseDuration(Period.duration));
-                }
-                else {
-                    throw new Error("MPD文件格式错误");
-                }
-            });
-        }
-        else {
-            totalDuration = MpdDuration;
-        }
-        return totalDuration;
-    }
-    getSegmentDuration(Mpd, streamId) {
-        let Period = Mpd["Period_asArray"][streamId];
-        if (!Period) {
-            throw new Error("传入的流不存在");
-        }
-        let segmentDuration = 0;
-        Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
-            AdaptationSet["Representation_asArray"].forEach(Representation => {
-                if (Representation.segmentDuration) {
-                    segmentDuration = Number(Representation.segmentDuration);
-                }
-            });
-        });
-        return segmentDuration;
-    }
-    /**
-     * @static
-     * @param {(Mpd | Period | AdaptationSet)} Mpd
-     * @memberof DashParser
-     * @description 给每一个Representation对象上挂载duration属性 此处的duration指的是Representation所属的Period所代表的媒体的总时长
-     */
-    setDurationForRepresentation(Mpd) {
-        //1. 如果只有一个Period 就需要递归的把总时间传到每个元素上
-        if (Mpd["Period_asArray"].length === 1) {
-            let totalDuration = this.getTotalDuration(Mpd);
-            Mpd["Period_asArray"].forEach(Period => {
-                Period.duration = Period.duration || totalDuration;
-                Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
-                    AdaptationSet.duration = totalDuration;
-                    AdaptationSet["Representation_asArray"].forEach(Representation => {
-                        Representation.duration = totalDuration;
-                    });
-                });
-            });
-        }
-        else {
-            Mpd["Period_asArray"].forEach(Period => {
-                if (!Period.duration)
-                    throw new Error("MPD文件格式错误");
-                let duration = Period.duration;
-                Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
-                    AdaptationSet.duration = duration;
-                    AdaptationSet["Representation_asArray"].forEach(Representation => {
-                        Representation.duration = duration;
-                    });
-                });
-            });
-        }
-    }
-    /**
-     * @description 将Mpd的请求URL 截取到最后一个 / 之前，作为Mpd的BaseURL
-     * @param {*} Mpd
-     * @memberof DashParser
-     */
-    setBaseURLForMpd(Mpd) {
-        // 将用来请求Mpd的url截取到最后一个 / 之前
-        // console.log("截取前的url", this.mpdURL)
-        Mpd.baseURL = this.URLUtils.sliceLastURLPath(this.mpdURL);
-        // console.log("截取后的url", Mpd)
-    }
-    // 给每一个Rpresentation对象上挂载segmentDuration属性，用来标识该Representation每一个Segment的时长
-    /**
-    * @param {Mpd} Mpd
-    * @memberof SegmentTemplateParser
-    * @description 设置 Representation_asArray 的 segmentDuration 一般为 (duration / timescale)
-    */
-    setSegmentDurationForRepresentation(Mpd) {
-        let maxSegmentDuration = switchToSeconds(parseDuration(Mpd.maxSegmentDuration));
-        Mpd["Period_asArray"].forEach(Period => {
-            Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
-                AdaptationSet["Representation_asArray"].forEach(Representation => {
-                    if (Representation["SegmentTemplate"]) {
-                        if (Representation["SegmentTemplate"].duration) {
-                            let duration = Representation["SegmentTemplate"].duration;
-                            let timescale = Representation["SegmentTemplate"].timescale || 1;
-                            Representation.segmentDuration = (duration / timescale).toFixed(1);
-                        }
-                        else {
-                            if (maxSegmentDuration) {
-                                Representation.segmentDuration = maxSegmentDuration;
-                            }
-                            else {
-                                throw new Error("MPD文件格式错误");
-                            }
-                        }
-                    }
-                });
-            });
-        });
-    }
-    onSourceAttached(url) {
-        this.mpdURL = url; // 这里拿到的url是我们用来请求Mpd文件的url
-    }
-    /**
-    * @description 在 Representation_asArray 上添加分辨率 resolvePower 或者 音频采样率 audioSamplingRate
-    * @param {Mpd} Mpd
-    * @memberof DashParser
-    */
-    setResolvePowerForRepresentation(Mpd) {
-        Mpd["Period_asArray"].forEach(Period => {
-            Period["AdaptationSet_asArray"].forEach(AdaptationSet => {
-                // 
-                if (AdaptationSet.mimeType === "video/mp4" || AdaptationSet["Representation_asArray"][0].mimeType === "video/mp4") {
-                    // 添加视频分辨率
-                    console.log("设置分辨率");
-                    AdaptationSet["Representation_asArray"].forEach(Representation => {
-                        if (Representation.width && Representation.height) {
-                            Representation.resolvePower = `${Representation.width}*${Representation.height}`;
-                        }
-                    });
-                }
-                else if (AdaptationSet.mimeType === "audio/mp4" || AdaptationSet["Representation_asArray"][0].mimeType === "audio/mp4") {
-                    // 音频采样率
-                    AdaptationSet["Representation_asArray"].forEach(Representation => {
-                        if (Representation.audioSamplingRate) {
-                            Representation.resolvePower = Representation.audioSamplingRate;
-                        }
-                    });
-                }
-            });
-        });
-    }
-}
-const DashParserFactory = FactoryMaker.getSingleFactory(DashParser);
-
-/******************************************************************************
-Copyright (c) Microsoft Corporation.
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
-AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
-OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
-PERFORMANCE OF THIS SOFTWARE.
-***************************************************************************** */
-
-function __awaiter(thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-}
-
-class URLNode {
-    constructor(url) {
-        this.children = [];
-        this.url = url || null;
-    }
-    setChild(index, child) {
-        this.children[index] = child;
-    }
-    getChild(index) {
-        return this.children[index];
-    }
-}
-class BaseURLParser {
-    constructor(ctx, ...args) {
-        this.config = {};
-        this.config = ctx.context;
-        this.setup();
-    }
-    setup() { }
-    // 返回URLNode 
-    /**
-     * @description 在Mpd结构中 找BaseURL ，有可能找不到返回的 URLNode信息全为null
-     * @param {Mpd} manifest
-     * @return {*}  {URLNode}
-     * @memberof BaseURLParser
-     */
-    parseManifestForBaseURL(manifest) {
-        let root = new URLNode(null);
-        //1. 一层层遍历每一个Period,AdaptationSet,Representation，规定BaseURL节点只可能出现在Period,AdaptationSet,Representation中
-        manifest["Period_asArray"].forEach((p, pId) => {
-            let url = null;
-            if (p["BaseURL_asArray"]) {
-                url = p["BaseURL_asArray"][0];
-            }
-            let periodNode = new URLNode(url);
-            root.setChild(pId, periodNode);
-            p["AdaptationSet_asArray"].forEach((a, aId) => {
-                let url = null;
-                if (a["BaseURL_asArray"]) {
-                    url = a["BaseURL_asArray"][0];
-                }
-                let adaptationSetNode = new URLNode(url);
-                periodNode.setChild(aId, adaptationSetNode);
-                a["Representation_asArray"].forEach((r, rId) => {
-                    let url = null;
-                    if (r["BaseURL_asArray"]) {
-                        url = r["BaseURL_asArray"][0];
-                    }
-                    let representationNode = new URLNode(url);
-                    adaptationSetNode.setChild(rId, representationNode);
-                });
-            });
-        });
-        // 全部遍历完后返回URLNode构成的节点
-        return root;
-    }
-    getBaseURLByPath(path, urlNode) {
-        let baseURL = "";
-        let root = urlNode;
-        for (let i = 0; i < path.length; i++) {
-            if (path[i] >= root.children.length || path[i] < 0) {
-                throw new Error("传入的路径不正确");
-            }
-            // baseURL += root.children[path[i]].url;
-            if (root.children[path[i]].url) {
-                baseURL += root.children[path[i]].url;
-            }
-            root = root.children[path[i]];
-        }
-        // 遍历到最后一层时 root 的child应该为空，不能再有值
-        if (root.children.length > 0) {
-            throw new Error("传入的路径不正确");
-        }
-        // console.log("getBaseURLByPath生成的baseUrl", baseURL) // 如果 AdaptionSet再往下都没有 baseURL那么就全是空
-        return baseURL; // 这是对每一层的url进行了一个拼接
-    }
-}
-const factory$5 = FactoryMaker.getSingleFactory(BaseURLParser);
-
-class TimeRangeUtils {
-    constructor(ctx) {
-        this.config = {};
-        this.config = ctx.context;
-        this.setup();
-    }
-    setup() {
-        this.dashParse = DashParserFactory().getInstance();
-    }
-    /**
-     * @description 返回特定stream之前的所有stream的时间总和
-     * @param streamId
-     * @param Mpd
-     * @returns {number} Number
-     */
-    getSummaryTimeBeforeStream(streamId, Mpd) {
-        if (streamId === 0)
-            return 0;
-        let Period = Mpd["Period_asArray"];
-        let sum = 0;
-        for (let i = 0; i < streamId; i++) {
-            sum += Period[i].duration;
-        }
-        return sum;
-    }
-    // 判断切换是否在 在特定的流范围内
-    inSpecificStreamRange(streamId, currentTime, Mpd) {
-        let totalTime = this.dashParse.getTotalDuration(Mpd);
-        if (currentTime > totalTime)
-            return false;
-        // 拿到之前的所有时间作为 start
-        let start = this.getSummaryTimeBeforeStream(streamId, Mpd);
-        // 拿到当前streamId的时间+之前的 作为end
-        let end = start + Mpd["Period_asArray"][streamId].duration;
-        if (currentTime < start || currentTime > end)
-            return false;
-        return true;
-    }
-    getSegmentAndStreamIndexByTime(streamId, currentTime, Mpd) {
-        if (this.inSpecificStreamRange(streamId, currentTime, Mpd)) {
-            let segmentDuration = this.dashParse.getSegmentDuration(Mpd, streamId);
-            let index = Math.floor(currentTime / segmentDuration);
-            return [streamId, index];
-        }
-        else {
-            let totalTime = this.dashParse.getTotalDuration(Mpd);
-            if (currentTime > totalTime) {
-                throw new Error("传入的当前时间大于媒体的总时长");
-            }
-            let sum = 0;
-            for (let i = 0; i < Mpd["Period_asArray"].length; i++) {
-                let Period = Mpd["Period_asArray"][i];
-                sum += Period.duration;
-                if (sum > currentTime) {
-                    let segmentDuration = this.dashParse.getSegmentDuration(Mpd, i);
-                    let index = Math.floor(currentTime / segmentDuration);
-                    return [i, index];
-                }
-            }
-        }
-    }
-    getOffestTimeOfMediaSegment(streamId, mediaId, Mpd) {
-        let beforeTime = this.getSummaryTimeBeforeStream(streamId, Mpd);
-        let segmentDuration = this.dashParse.getSegmentDuration(Mpd, streamId);
-        return beforeTime + segmentDuration * (mediaId + 1);
-    }
-    // 判断 time 是否在 ranges 内部
-    inVideoBuffered(time, ranges) {
-        for (let range of ranges) {
-            if (time >= range.start && time <= range.end)
-                return true;
-        }
-        return false;
-    }
-}
-const factory$4 = FactoryMaker.getSingleFactory(TimeRangeUtils);
-
-// StreamController  构建请求的结构体
-class StreamController {
-    constructor(ctx, ...args) {
-        this.config = {};
-        // 视频分辨率 音频采样率
-        this.videoResolvePower = "1920*1080";
-        // private videoResolvePower: string = "1280*720";
-        this.audioResolvePower = "48000";
-        // 
-        this.mediaId = 0;
-        this.streamId = 0;
-        this.config = ctx.context;
-        this.firstRequestNumber = this.config.num || 23;
-        this.setup();
-        this.initialEvent();
-    }
-    setup() {
-        this.baseURLParser = factory$5().getInstance();
-        this.URLUtils = factory$6().getInstance();
-        this.eventBus = EventBusFactory().getInstance();
-        this.urlLoader = URLLoaderFactory().getInstance();
-        this.timeRangeUtils = factory$4().getInstance();
-    }
-    initialEvent() {
-        // 当 Mpd 文件解析完毕之后，回来调用这个函数
-        this.eventBus.on(EventConstants.MANIFEST_PARSE_COMPLETED, this.onManifestParseCompleted, this);
-        this.eventBus.on(EventConstants.SEGMENT_CONSUMED, this.onSegmentConsumed, this);
-        // 当点击到没用加载的位置时触发请求
-        this.eventBus.on(EventConstants.SEGMENT_REQUEST, this.onSegmentRequest, this);
-    }
-    /**
-     * @description 根据处理好的 mainifest 构建出 请求的结构体, 并进行segment的请求
-     * @param {Mpd} mainifest
-     * @memberof StreamController
-     */
-    onManifestParseCompleted(mainifest) {
-        this.segmentRequestStruct = this.generateSegmentRequestStruct(mainifest);
-        console.log("segmentRequestStruct", this.segmentRequestStruct);
-        this.Mpd = mainifest;
-        this.startStream(mainifest);
-    }
-    generateBaseURLPath(Mpd) {
-        this.baseURLPath = this.baseURLParser.parseManifestForBaseURL(Mpd);
-        console.log("parseManifestForBaseURL 返回的 URLNode", this.baseURLPath);
-    }
-    /**
-     * @description 根据处理好的 mainifest 构建出 请求的结构体， 返回 MpdSegmentRequest
-     *
-     * @param {Mpd} Mpd
-     * @return {*}  {(MpdSegmentRequest | void)}
-     * @memberof StreamController
-     */
-    generateSegmentRequestStruct(Mpd) {
-        this.generateBaseURLPath(Mpd); // URLNode
-        console.log("parseManifestForBaseURL后的MPD", Mpd);
-        // 拿到之前 dashparse中 mpd上的baseURL
-        let baseURL = Mpd["baseURL"] || "";
-        let mpdSegmentRequest = {
-            type: "MpdSegmentRequest",
-            request: []
-        };
-        for (let i = 0; i < Mpd["Period_asArray"].length; i++) {
-            let Period = Mpd["Period_asArray"][i];
-            let periodSegmentRequest = {
-                VideoSegmentRequest: [],
-                AudioSegmentRequest: [] // 根据语言区分
-            };
-            for (let j = 0; j < Period["AdaptationSet_asArray"].length; j++) {
-                let AdaptationSet = Period["AdaptationSet_asArray"][j];
-                // 拿到的这个res 是  AdaptationSet 下 所有Representation的 resolvePower:[initializationURL,mediaURL] 组成的 对象
-                let res = this.generateAdaptationSetVideoOrAudioSegmentRequest(AdaptationSet, baseURL, i, j);
-                // console.log("AdaptationSet.mimeType", AdaptationSet.mimeType)
-                // 有的mpd文件的 AdaptationSet上面不存在 mimeType属性 而是在下层的 Representation 里面
-                if (AdaptationSet.mimeType === "video/mp4" || AdaptationSet["Representation_asArray"][0].mimeType === "video/mp4") {
-                    periodSegmentRequest.VideoSegmentRequest.push({
-                        type: "video",
-                        video: res
-                    });
-                }
-                else if (AdaptationSet.mimeType === "audio/mp4" || AdaptationSet["Representation_asArray"][0].mimeType === "audio/mp4") {
-                    periodSegmentRequest.AudioSegmentRequest.push({
-                        lang: AdaptationSet.lang || "en",
-                        audio: res
-                    });
-                }
-            }
-            mpdSegmentRequest.request.push(periodSegmentRequest);
-        }
-        return mpdSegmentRequest;
-    }
-    /**
-     *
-     * @description 得到 AdaptationSet 下 所有Representation的 resolvePower:[initializationURL,mediaURL] 组成的 对象
-     * @param {AdaptationSet} AdaptationSet
-     * @return {*}  {(AdaptationSetVideoSegmentRequest | AdaptationSetAudioSegmentRequest)}
-     * @memberof StreamController
-     */
-    generateAdaptationSetVideoOrAudioSegmentRequest(AdaptationSet, baseURL, i, j) {
-        // i j k 分别对应 Period AdaptionSet Representation 的索引
-        let result = {};
-        for (let k = 0; k < AdaptationSet["Representation_asArray"].length; k++) {
-            let Representation = AdaptationSet["Representation_asArray"][k];
-            // 合并这几个url
-            let url = this.URLUtils.
-                resolve(baseURL, this.baseURLParser.getBaseURLByPath([i, j, k], this.baseURLPath)); // this.baseURLPath 是那个全是null的遍历结构 
-            console.log(url); // 目前这部分返回的就是 baseURL
-            // 键名是对应的分辨率
-            result[Representation.resolvePower] = [];
-            // push 第一项就是 initailURL
-            result[Representation.resolvePower].push(this.URLUtils.resolve(url, Representation.initializationURL));
-            // 之后的会构成一个数组，存放的是 MediaURl
-            result[Representation.resolvePower].push(Representation.mediaURL.map(item => {
-                return this.URLUtils.resolve(url, item);
-            }));
-            // result[Representation.resolvePower] = [Representation.initializationURL, Representation.mediaURL];
-        }
-        return result;
-    }
-    // 获取到当前 streamId 中有的总共的 mediaUrl的数量
-    getNumberOfMediaSegmentForPeriod() {
-        return this.segmentRequestStruct.request[this.streamId].VideoSegmentRequest[0].video[this.videoResolvePower][1].length;
-    }
-    //初始化播放流，一次至多加载23个Segement过来
-    startStream(Mpd) {
-        return __awaiter(this, void 0, void 0, function* () {
-            Mpd["Period_asArray"][this.streamId];
-            let ires = yield this.loadInitialSegment(this.streamId);
-            this.eventBus.tigger(EventConstants.SEGMENT_LOADED, { data: ires, streamId: this.streamId });
-            let number = this.getNumberOfMediaSegmentForPeriod();
-            for (let i = 0; i < (number >= this.firstRequestNumber ? this.firstRequestNumber : number); i++) {
-                let mres = yield this.loadMediaSegment();
-                this.mediaId++;
-                this.eventBus.tigger(EventConstants.SEGMENT_LOADED, { data: mres, streamId: this.streamId, mediaId: this.mediaId });
-            }
-        });
-    }
-    //此处的streamId标识具体的Period对象
-    loadInitialSegment(streamId) {
-        let stream = this.segmentRequestStruct.request[streamId];
-        // 先默认选择音视频的第一个版本
-        let audioRequest = stream.AudioSegmentRequest[0].audio;
-        let videoRequest = stream.VideoSegmentRequest[0].video;
-        // 这里不应该直接用 this中的值，应该先进行设置初值
-        return this.loadSegment(videoRequest[this.videoResolvePower][0], audioRequest[this.audioResolvePower][0]);
-    }
-    loadMediaSegment() {
-        let stream = this.segmentRequestStruct.request[this.streamId];
-        // 莫仍选择音视频的第一个版本
-        let audioRequest = stream.AudioSegmentRequest[0].audio;
-        let videoRequest = stream.VideoSegmentRequest[0].video;
-        return this.loadSegment(videoRequest[this.videoResolvePower][1][this.mediaId], audioRequest[this.audioResolvePower][1][this.mediaId]);
-    }
-    loadSegment(videoURL, audioURL) {
-        let p1 = this.urlLoader.load({ url: videoURL, responseType: "arraybuffer" }, "Segment");
-        let p2 = this.urlLoader.load({ url: audioURL, responseType: "arraybuffer" }, "Segment");
-        return Promise.all([p1, p2]);
-    }
-    // 播放器消费一个Segment我就继续请求一个Segment
-    onSegmentConsumed() {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this.segmentRequestStruct.request[this.streamId])
-                return;
-            let total = this.getNumberOfMediaSegmentForPeriod();
-            // 如果当前Period全部请求完毕,就去请求另一个Peiod中的内容
-            if (this.mediaId >= total) {
-                this.mediaId = 0;
-                this.streamId++;
-            }
-            else {
-                this.mediaId++;
-            }
-            // 再接着往下走时，如果没了 就播放完了
-            if (this.segmentRequestStruct.request[this.streamId] === undefined) {
-                console.log("播放完毕");
-                this.eventBus.tigger(EventConstants.MEDIA_PLAYBACK_FINISHED);
-            }
-            else {
-                let mres = yield this.loadMediaSegment();
-                this.eventBus.tigger(EventConstants.SEGMENT_LOADED, { data: mres, streamId: this.streamId });
-            }
-        });
-    }
-    /**
-     * @description  如果此时video发生缓存内容之外的跳转，则需要重新请求对应的segment，因此需要中断正在发送还没有收到结果的请求
-     * @param tuple
-     */
-    onSegmentRequest(tuple) {
-        return __awaiter(this, void 0, void 0, function* () {
-            this.abortAllXHR();
-            let [streamId, mediaId] = tuple;
-            this.streamId = streamId;
-            this.mediaId = mediaId;
-            let mres = yield this.loadMediaSegment();
-            this.eventBus.tigger(EventConstants.SEGMENT_LOADED, { data: mres, streamId: this.streamId, mediaId: mediaId });
-        });
-    }
-    abortAllXHR() {
-        this.urlLoader.abortAllXHR();
-    }
-}
-const factory$3 = FactoryMaker.getClassFactory(StreamController);
-
-/**
- * @description MediaPlayerBuffer.arrayBuffer 用来存放 playerBuffer 的数组
- * @class MediaPlayerBuffer
- */
-class MediaPlayerBuffer {
-    constructor(ctx, ...args) {
-        this.config = {};
-        this.arrayBuffer = new Array(); // new一个数组
-        this.config = ctx.context;
-    }
-    ;
-    push(buffer) {
-        this.arrayBuffer.push(buffer);
-    }
-    clear() {
-        this.arrayBuffer = [];
-    }
-    isEmpty() {
-        return this.arrayBuffer.length === 0;
-    }
-    delete(buffer) {
-        if (this.arrayBuffer.includes(buffer)) {
-            let index = this.arrayBuffer.indexOf(buffer);
-            this.arrayBuffer.splice(index, 1);
-        }
-    }
-    top() {
-        return this.arrayBuffer[0] || null;
-    }
-    pop() {
-        this.arrayBuffer.length && this.arrayBuffer.pop();
-    }
-}
-const factory$2 = FactoryMaker.getSingleFactory(MediaPlayerBuffer);
-
-// 负责将请求到的资源放入到 buffer中，该文件主要进行资源后续处理
-class MediaPlayerController {
-    constructor(ctx, ...args) {
-        // 私有属性
-        this.config = {};
-        this.isFirstRequestCompleted = false;
-        this.mediaDuration = 0;
-        this.currentStreamId = 0;
-        this.config = ctx.context;
-        if (this.config.video) {
-            this.video = this.config.video;
-        }
-        this.setup();
-        console.log("initMediaPlayerController----initEvent");
-        this.initEvent();
-        console.log("initMediaPlayerController----initPlayer");
-        this.initPlayer();
-    }
-    setup() {
-        // MediaSource() 是 MediaSource 的构造函数，返回一个没有分配 source buffers 新的 MediaSource 对象。
-        this.mediaSource = new MediaSource();
-        this.buffer = factory$2().getInstance();
-        this.eventBus = EventBusFactory().getInstance();
-        this.timeRangeUtils = factory$4().getInstance();
-    }
-    initEvent() {
-        // 每加载一个 segment 并将数据 push到buffer中时触发
-        console.log("on BUFFER_APPENDED");
-        this.eventBus.on(EventConstants.BUFFER_APPENDED, (id) => {
-            if (!this.videoSourceBuffer.updating && !this.audioSourceBuffer.updating) {
-                console.log("BUFFER_APPENDED");
-                this.appendSource();
-                this.currentStreamId = id;
-            }
-        }, this);
-        // console.log("on FIRST_REQUEST_COMPLETED")
-        // this.eventBus.on(EventConstants.FIRST_REQUEST_COMPLETED, () => {
-        //     this.isFirstRequestCompleted = true;
-        // }, this)
-        console.log("on MANIFEST_PARSE_COMPLETED");
-        this.eventBus.on(EventConstants.MANIFEST_PARSE_COMPLETED, (manifest, duration, Mpd) => {
-            this.mediaDuration = duration; // 目前的拿到的是全部的时间
-            this.Mpd = Mpd;
-            // MediaSource.readyState 只读
-            // 返回一个代表当前 MediaSource 状态的枚举值，即当前是否未连接到媒体元素（closed），是否已连接并准备好接收 SourceBuffer 对象（open），或者是否已连接但已通过 MediaSource.endOfStream() 结束媒体流（ended）。
-            if (this.mediaSource.readyState === "open") {
-                // MediaSource 接口的属性 duration 用来获取或者设置当前媒体展示的时长。
-                // this.mediaSource.duration = duration
-                this.setMediaSource();
-            }
-        }, this);
-        console.log("on MEDIA_PLAYBACK_FINISHED");
-        this.eventBus.on(EventConstants.MEDIA_PLAYBACK_FINISHED, this.onMediaPlaybackFinished, this);
-    }
-    initPlayer() {
-        console.log("initPlayer");
-        this.video.src = window.URL.createObjectURL(this.mediaSource);
-        // this.video.pause();
-        this.mediaSource.addEventListener("sourceopen", this.onSourceopen.bind(this));
-        // 在视频播放中进行跳转（seek）
-        this.video.addEventListener("seeking", this.onMediaSeeking.bind(this));
-    }
-    /**
-     *  @description 配置MediaSource的相关选项和属性
-     */
-    setMediaSource() {
-        // 直接给 mediaSource 设置 duration，video使用这个 mediaSource 就可以直接设置好总时间
-        this.mediaSource.duration = this.mediaDuration;
-        // mediaSource.setLiveSeekableRange 函数用于设置 MSE 中直播媒体的可寻址范围。直播流通常是不断更新的，因此可寻址范围允许您指定可以随时进行跳转的时间段。
-        // 就是可以随时进行跳转的时间段。
-        this.mediaSource.setLiveSeekableRange(0, this.mediaDuration);
-    }
-    /**
-     * @description 当进度条发生跳转时触发
-     * @param { EventTarget} e
-     */
-    onMediaSeeking(e) {
-        // 加载新的视频片段：如果视频使用分段（segment）的方式进行传输，seek 事件可能会触发加载新的视频片段。应用程序可以根据 seek 的时间点请求相应的视频片段，并进行加载和解码，以确保播放器能够无缝地切换到指定时间点。
-        console.log("video seeking");
-        let currentTime = this.video.currentTime;
-        let [streamId, mediaId] = this.timeRangeUtils.
-            getSegmentAndStreamIndexByTime(this.currentStreamId, currentTime, this.Mpd);
-        console.log(streamId, mediaId);
-        let ranges = this.getVideoBuffered(this.video);
-        if (!this.timeRangeUtils.inVideoBuffered(currentTime, ranges)) {
-            console.log("超出缓存范围");
-            this.buffer.clear();
-            // 当点击的位置超出范围是，就调用SEGMENT_REQUEST，去请求对应部分的内容
-            this.eventBus.tigger(EventConstants.SEGMENT_REQUEST, [streamId, mediaId]);
-        }
-        else {
-            console.log("在缓存范围之内");
-        }
-    }
-    getVideoBuffered(video) {
-        let buffer = this.video.buffered;
-        let res = [];
-        for (let i = 0; i < buffer.length; i++) {
-            let start = buffer.start(i);
-            let end = buffer.end(i);
-            res.push({ start, end });
-        }
-        return res;
-    }
-    appendSource() {
-        let data = this.buffer.top();
-        if (data) {
-            this.buffer.delete(data);
-            this.appendVideoSource(data.video);
-            this.appendAudioSource(data.audio);
-        }
-    }
-    appendVideoSource(data) {
-        // Uint8Array 数组类型表示一个 8 位无符号整型数组，创建时内容被初始化为 0。创建完后，可以以对象的方式或使用数组下标索引的方式引用数组中的元素。
-        this.videoSourceBuffer.appendBuffer(new Uint8Array(data));
-    }
-    appendAudioSource(data) {
-        this.audioSourceBuffer.appendBuffer(new Uint8Array(data));
-    }
-    onSourceopen(e) {
-        console.log("onSourceopen");
-        // this.setMediaSource();
-        // addSourceBuffer() 创建一个带有给定 MIME 类型的新的 SourceBuffer 并添加到 MediaSource 的 SourceBuffers 列表。
-        this.videoSourceBuffer = this.mediaSource.addSourceBuffer('video/mp4; codecs="avc1.64001E"');
-        this.audioSourceBuffer = this.mediaSource.addSourceBuffer('audio/mp4; codecs="mp4a.40.2"');
-        // updateend 在 SourceBuffer.appendBuffer() 或 SourceBuffer.remove() 结束后触发。这个事件在 update 后触发。
-        this.videoSourceBuffer.addEventListener("updateend", this.onUpdateend.bind(this));
-        this.audioSourceBuffer.addEventListener("updateend", this.onUpdateend.bind(this));
-    }
-    onUpdateend() {
-        //  SourceBuffer.updating 一个布尔值，表示 SourceBuffer 当前是否正在更新——即当前是否正在进行, 正常情况下 updateend 触发时为 updating 为 false
-        if (!this.videoSourceBuffer.updating && !this.audioSourceBuffer.updating) {
-            // 第一组请求完成之后， 触发 SEGMENT_CONSUMED
-            if (this.isFirstRequestCompleted) {
-                let ranges = this.getVideoBuffered(this.video);
-                this.eventBus.tigger(EventConstants.SEGMENT_CONSUMED, ranges);
-            }
-            this.appendSource();
-        }
-    }
-    onMediaPlaybackFinished() {
-        // MediaSource 接口的 endOfStream() 方法意味着流的结束。
-        // this.mediaSource.endOfStream();
-        window.URL.revokeObjectURL(this.video.src);
-        console.log("播放流加载结束");
-    }
-}
-const factory$1 = FactoryMaker.getClassFactory(MediaPlayerController);
-
-/**
- * @description 整个dash处理流程的入口类MediaPlayer, 类似于项目的中转中心，用于接收任务并且将任务分配给不同的解析器去完成
- */
-class MediaPlayer {
-    constructor(ctx, ...args) {
-        this.config = {};
-        this.firstCurrentRequest = 0;
-        this.duration = 0;
-        // 当前视频流的具体ID，也就是在请求第几个Period媒体片段
-        this.currentStreamId = 0;
-        this.config = ctx.context;
-        this.setup();
-        this.initializeEvent();
-    }
-    // 初始化类
-    setup() {
-        this.urlLoader = URLLoaderFactory().getInstance();
-        this.eventBus = EventBusFactory().getInstance();
-        // ignoreRoot -> 忽略Document节点，从MPD开始作为根节点
-        this.dashParser = DashParserFactory({ ignoreRoot: true }).getInstance();
-        this.streamController = factory$3({ num: 23 }).create();
-        this.buffer = factory$2().getInstance(); // 在这里呗初次创建， 其他时候都是直接引用
-    }
-    initializeEvent() {
-        this.eventBus.on(EventConstants.MANIFEST_LOADED, this.onManifestLoaded, this);
-        this.eventBus.on(EventConstants.SEGMENT_LOADED, this.onSegmentLoaded, this);
-    }
-    resetEvent() {
-        this.eventBus.off(EventConstants.MANIFEST_LOADED, this.onManifestLoaded, this);
-        this.eventBus.off(EventConstants.SEGMENT_LOADED, this.onSegmentLoaded, this);
-    }
-    //MPD文件请求成功获得对应的data数据
-    onManifestLoaded(data) {
-        console.log("请求得到的manifest数据", data); //这里的data是字符串
-        let manifest = this.dashParser.parse(data); // 在这里已经将 data已经将数据都处理好了
-        // let res = this.streamController.generateSegmentRequestStruct(manifest as Mpd);
-        // console.log("generateSegmentRequestStruct的返回结果 SegmentRequestStruct", res);
-        this.duration = this.dashParser.getTotalDuration(manifest);
-        this.eventBus.tigger(EventConstants.MANIFEST_PARSE_COMPLETED, manifest, this.duration, manifest);
-    }
-    /**
-     * @description 发送MPD文件的网络请求，我要做的事情很纯粹，具体实现细节由各个Loader去具体实现
-     * @param url
-     */
-    attachSource(url) {
-        this.eventBus.tigger(EventConstants.SOURCE_ATTACHED, url); // 再 dashParse中为 Mpd添加BaseUrl
-        this.urlLoader.load({ url, responseType: 'text' }, "Manifest");
-    }
-    // segment加载完成的回调
-    onSegmentLoaded(res) {
-        this.firstCurrentRequest++;
-        // 第一组加载完毕 
-        if (this.firstCurrentRequest === 23) {
-            this.eventBus.tigger(EventConstants.FIRST_REQUEST_COMPLETED);
-        }
-        let data = res.data;
-        console.log("onSegmentLoaded:res", res);
-        let id = res.streamId;
-        let videoBuffer = data[0];
-        let audioBuffer = data[1];
-        this.currentStreamId = id;
-        console.log("加载Segment成功", videoBuffer, audioBuffer);
-        this.buffer.push({
-            video: videoBuffer,
-            audio: audioBuffer,
-            streamId: res.streamId
-        });
-        this.eventBus.tigger(EventConstants.BUFFER_APPENDED, this.currentStreamId);
-    }
-    attachVideo(video) {
-        console.log("MediaPlayer attachVideo", video);
-        this.video = video;
-        this.mediaPlayerController = factory$1({ video: video, duration: this.duration }).create();
-    }
-}
-const factory = FactoryMaker.getClassFactory(MediaPlayer);
-
-// 以下注释部分全部弃用
-class MpdPlayer {
-    constructor(player) {
-        let mediaPlayer = factory().create();
-        mediaPlayer.attachSource(player.playerOptions.url);
-        mediaPlayer.attachVideo(player.video);
-        player.video.controls = true;
-    }
-}
-
-class Player extends BaseEvent {
-    constructor(options) {
-        super();
-        this.playerOptions = {
-            url: "",
-            autoplay: false,
-            width: "100%",
-            height: "100%",
-        };
-        this.playerOptions = Object.assign(this.playerOptions, options);
-        this.init();
-        this.initComponent();
-        this.initContainer();
-        // this.initEvent()
-        if (getFileExtension(this.playerOptions.url) === "mp4") {
-            new Mp4Player(this);
-        }
-        else if (getFileExtension(this.playerOptions.url) === "mpd") {
-            new MpdPlayer(this);
-        }
-    }
-    ;
-    init() {
-        let container = this.playerOptions.container;
-        if (!this.isTagValidate(container)) {
-            $warn("你传入的容器的元素类型不适合，建议传入块元素或者行内块元素，拒绝传入具有交互类型的元素例如input框等表单类型的元素");
-        }
-        this.container = container;
-    }
-    ;
-    /**
-     * @description 初始化播放器上的各种组件实例
-     */
-    initComponent() {
-        this.toolbar = new ToolBar(this.container);
-        this.loadingMask = new LoadingMask(this.container);
-        this.errorMask = new ErrorMask(this.container);
-    }
-    ;
-    initContainer() {
-        this.container.style.width = this.playerOptions.width;
-        this.container.style.height = this.playerOptions.height;
-        this.container.className = styles['video-container'];
-        this.container.innerHTML = `
-            <div class="${styles["video-wrapper"]}">
-                <video></video>
-            </div>
-        `;
-        this.container.appendChild(this.toolbar.template);
-        this.video = this.container.querySelector("video");
-        // video的宽高改为 容器的 content+padding
-        this.video.height = this.container.clientHeight;
-        this.video.width = this.container.clientWidth;
-    }
-    ;
-    // 判定元素是否为合理的元素  不可以是行内元素和可交互的行内块级元素
-    isTagValidate(ele) {
-        //window.getComputedStyle 获取元素的css样式 只读
-        if (window.getComputedStyle(ele).display === 'block')
-            return true;
-        if (window.getComputedStyle(ele).display === 'inline')
-            return false;
-        if (window.getComputedStyle(ele).display === 'inline-block') {
-            if (ele instanceof HTMLImageElement ||
-                ele instanceof HTMLAudioElement ||
-                ele instanceof HTMLVideoElement ||
-                ele instanceof HTMLInputElement ||
-                ele instanceof HTMLCanvasElement ||
-                ele instanceof HTMLButtonElement) {
-                return false;
-            }
-            return true;
-        }
-        return true;
-    }
 }
 
 /**
@@ -2535,11 +1062,6 @@ function string2number(s) {
         return null;
 }
 
-// 一下部分在 v1.0.0之后都更新弃用了
-// export * from "./dash/initMpd";  
-// export * from "./dash/parseMpd"
-// export * from "./types/AxiosRequest"
-// export * from "./axios/Axios"
 console.log('hello');
 
 export { $warn, BaseEvent, Controller, ErrorMask, LoadingMask, Player, Progress, ToolBar, addZero, checkAdaptationSet, checkBaseURL, checkInitialization, checkMediaType, checkMpd, checkPeriod, checkRepresentation, checkSegmentBase, checkSegmentList, checkSegmentTemplate, checkSegmentURL, formatTime, icon, parseDuration, string2boolean, string2number, styles, switchToSeconds };
