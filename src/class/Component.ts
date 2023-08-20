@@ -19,4 +19,10 @@ export class Component extends BaseEvent {
         // 用于向指定元素的子节点列表末尾添加一个或多个节点对象或文本节点。
         container.append(dom);
     }
+
+    init() { }
+    initEvent() { }
+    initTemplate() { }
+    initComponent() { }
+    resetEvent() { }
 }

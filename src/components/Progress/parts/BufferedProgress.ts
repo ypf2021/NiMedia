@@ -5,12 +5,12 @@ import { Progress } from "../progress";
 
 export class BufferedProgress extends Component implements ComponentItem {
     readonly id = "BufferedProgress";
-    props?: DOMProps;
+    props: DOMProps = {};
     player: Player;
 
     constructor(player: Player, container: HTMLElement, desc?: string, props?: DOMProps, children?: Node[]) {
         super(container, desc, props, children)
-        this.props = props;
+        this.props = props || {};
         this.player = player;
         this.init()
     }

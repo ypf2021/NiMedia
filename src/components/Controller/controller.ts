@@ -10,7 +10,7 @@ import { Playrate } from "./parts/PlayerRate";
 import { storeControlComponent } from "../../utils/store";
 export class Controller extends Component implements ComponentItem {
     readonly id = "Controller";
-    props: DOMProps;
+    props: DOMProps = {};
     player: Player;
     playButton: PlayButton;
     private subPlay: HTMLElement;

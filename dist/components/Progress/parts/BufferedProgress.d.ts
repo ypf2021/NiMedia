@@ -3,7 +3,7 @@ import { Player } from "../../../page/player";
 import { ComponentItem, DOMProps, Node } from "../../../types/Player";
 export declare class BufferedProgress extends Component implements ComponentItem {
     readonly id = "BufferedProgress";
-    props?: DOMProps;
+    props: DOMProps;
     player: Player;
     constructor(player: Player, container: HTMLElement, desc?: string, props?: DOMProps, children?: Node[]);
     init(): void;

@@ -47,6 +47,17 @@
             height: "300"
         })
 
+
+        player.use({
+            install(player) {
+                player.registerControls("Toolbar", {
+                    id: "Toolbar",
+                    onHideToolBar(e) {
+                        console.log("隐藏工具栏")
+                    }
+                })
+            }
+        })
     </script>
 </body>
 

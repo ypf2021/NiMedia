@@ -160,6 +160,107 @@ function createSvgs(d, viewBox = '0 0 1024 1024') {
     }
     return svg;
 }
+/**
+ * @description 合并两个组件的实例对象
+ * @param target
+ * @param another
+ */
+function patchComponent(target, another, options = { replaceElementType: "replaceOuterHTMLOfComponent" }) {
+    var _a, _b;
+    if (target.id !== another.id) {
+        throw new Error("需要合并的两个组件的id不相同");
+    }
+    for (let key in another) {
+        if (key in target) {
+            if (key === "props") {
+                patchDOMProps(target[key], another[key], target.el);
+            }
+            else if (key === "el") {
+                // 替换外部的
+                if (options.replaceElementType === "replaceOuterHTMLOfComponent") {
+                    target.el = another.el;
+                }
+                else {
+                    // 替换内部的
+                    for (let child of target.el.childNodes) {
+                        target.el.removeChild(child);
+                    }
+                    target.el.appendChild(another.el);
+                }
+            }
+            else {
+                //  其余的 props
+                if (target[key] instanceof Function) {
+                    if (!(another[key] instanceof Function)) {
+                        // 一个是fn 另一个 不是fn 的情况
+                        throw new Error(`属性${key}对应的值应该为函数类型`);
+                    }
+                    console.log("合并函数", another[key]);
+                    target[key] = patchFn(target[key], another[key], target);
+                    target.resetEvent();
+                }
+                else if (target[key] instanceof HTMLElement) {
+                    if (!(another[key] instanceof HTMLElement) && typeof another[key] !== 'string') {
+                        throw new Error(`属性${key}对应的值应该为DOM元素或者字符串类型`);
+                    }
+                    if (typeof another[key] === 'string') ;
+                    else {
+                        // 需要改父组件的子元素，还要覆盖
+                        (_a = target[key].parentNode) === null || _a === void 0 ? void 0 : _a.insertBefore(another[key], target[key]);
+                        (_b = target[key].parentNode) === null || _b === void 0 ? void 0 : _b.removeChild(target[key]);
+                        target[key] = another[key];
+                    }
+                }
+            }
+        }
+    }
+}
+function patchDOMProps(targetProps, anotherProps, el) {
+    for (let key in anotherProps) {
+        if (targetProps.hasOwnProperty(key)) {
+            if (key === "id") {
+                targetProps.id = anotherProps.id;
+                el.id = targetProps.id;
+            }
+            else if (key === "className") {
+                targetProps.className.concat(anotherProps.className);
+                addClass(el, anotherProps.className);
+            }
+            else if (key === "style") {
+                patchStyle(targetProps.style, anotherProps.style, el);
+            }
+        }
+        else {
+            targetProps[key] = anotherProps[key];
+            if (key !== 'style') {
+                el[key] = anotherProps[key];
+            }
+            else if (key === "style") {
+                for (let prop in anotherProps['style']) {
+                    el.style[prop] = anotherProps['style'][prop];
+                }
+            }
+        }
+    }
+}
+function patchStyle(targetStyle, anotherStyle, el) {
+    for (let key in anotherStyle) {
+        targetStyle[key] = anotherStyle[key];
+    }
+    for (let key in targetStyle) {
+        el.style[key] = targetStyle[key];
+    }
+}
+function patchFn(targetFn, anotherFn, context) {
+    // let args = targetFn.arguments;
+    console.log(targetFn, anotherFn, context);
+    function fn(...args) {
+        // 返回一个让两个都执行的函数
+        targetFn.call(context, ...args);
+        anotherFn.call(context, ...args);
+    }
+    return fn.bind(context);
+}
 
 /**
  *
@@ -176,6 +277,16 @@ class Component extends BaseEvent {
         // 用于向指定元素的子节点列表末尾添加一个或多个节点对象或文本节点。
         container.append(dom);
     }
+    init() { }
+    initEvent() { }
+    initTemplate() { }
+    initComponent() { }
+    resetEvent() { }
+}
+
+const CONTROL_COMPONENT_STORE = new Map();
+function storeControlComponent(item) {
+    CONTROL_COMPONENT_STORE.set(item.id, item);
 }
 
 // 音乐播放器的工具栏组件 ( progress + controller )
@@ -269,15 +380,17 @@ class ToolBar extends Component {
     constructor(player, container, desc, props, children) {
         super(container, desc, props, children);
         this.id = "Toolbar";
+        this.props = {};
         this.timer = 0;
         this.player = player;
-        this.props = props;
+        this.props = props || {};
         this.init();
     }
     init() {
         this.initTemplate();
         this.initComponent();
         this.initEvent();
+        storeControlComponent(this);
     }
     /**
     * @description 需要注意的是此处元素的class名字是官方用于控制整体toolbar一栏的显示和隐藏
@@ -396,7 +509,8 @@ class BufferedProgress extends Component {
     constructor(player, container, desc, props, children) {
         super(container, desc, props, children);
         this.id = "BufferedProgress";
-        this.props = props;
+        this.props = {};
+        this.props = props || {};
         this.player = player;
         this.init();
     }
@@ -461,6 +575,7 @@ class Player extends Component {
             width: "100%",
             height: "100%",
         };
+        this.props = {};
         this.playerOptions = Object.assign(this.playerOptions, options);
         this.container = options.container;
         console.log("playerOptions", this.playerOptions);
@@ -513,6 +628,19 @@ class Player extends Component {
     attendSource(url) {
         this.video.src = url;
     }
+    registerControls(id, component) {
+        let store = CONTROL_COMPONENT_STORE;
+        if (store.has(id)) {
+            patchComponent(store.get(id), component);
+        }
+    }
+    /**
+     * @description 注册对应的组件
+     * @param plugin
+     */
+    use(plugin) {
+        plugin.install(this);
+    }
 }
 
 // SVG相关path
@@ -527,7 +655,9 @@ class PlayButton extends Component {
     constructor(player, container, desc, props, children) {
         super(container, desc, props, children);
         this.id = "PlayButton";
+        this.props = {};
         this.player = player;
+        this.props = props || {};
         this.init();
     }
     init() {
@@ -541,6 +671,8 @@ class PlayButton extends Component {
         this.el.appendChild(this.button);
     }
     initEvent() {
+        //  让方法永远绑定到自己的实例
+        this.onClick = this.onClick.bind(this);
         // 触发播放，暂停 以及图标变换
         this.player.on("play", (e) => {
             this.el.removeChild(this.button);
@@ -552,14 +684,21 @@ class PlayButton extends Component {
             this.button = this.playIcon;
             this.el.appendChild(this.button);
         });
-        this.el.onclick = (e) => {
-            if (this.player.video.paused) {
-                this.player.video.play();
-            }
-            else {
-                this.player.video.pause();
-            }
-        };
+        this.el.onclick = this.onClick;
+    }
+    resetEvent() {
+        this.onClick = this.onClick.bind(this);
+        this.el.onclick = null;
+        this.el.onclick = this.onClick;
+    }
+    onClick(e) {
+        console.log(this);
+        if (this.player.video.paused) {
+            this.player.video.play();
+        }
+        else {
+            this.player.video.pause();
+        }
     }
 }
 
@@ -577,7 +716,7 @@ class Options extends Component {
         super(container, desc, props, children);
         this.id = "Options";
         this.player = player;
-        props ? (this.props = props) : (this.props = null);
+        props ? (this.props = props) : (this.props = {});
         this.hideHeight = hideHeight;
         this.hideWidth = hideWidth;
         this.initBase();
@@ -624,6 +763,7 @@ class Volume extends Options {
     init() {
         this.initTemplate();
         this.initEvent();
+        storeControlComponent(this);
     }
     initTemplate() {
         this.el["aria-label"] = "音量";
@@ -638,8 +778,8 @@ class Volume extends Options {
         this.hideBox.appendChild(this.volumeShow);
         this.hideBox.appendChild(this.volumeProgress);
         addClass(this.iconBox, ["video-icon"]);
-        let svg = createSvgs([volumePath$1, volumePath$2]);
-        this.iconBox.appendChild(svg);
+        this.icon = createSvgs([volumePath$1, volumePath$2]);
+        this.iconBox.appendChild(this.icon);
     }
     initEvent() {
         this.player.on("volume-progress-click", (e, ctx) => {
@@ -668,12 +808,14 @@ class FullScreen extends Component {
     constructor(player, container, desc, props, children) {
         super(container, desc, children);
         this.id = "FullScreen";
+        this.props = {};
         this.player = player;
         this.init();
     }
     init() {
         this.initTemplate();
         this.initEvent();
+        storeControlComponent(this);
     }
     initTemplate() {
         addClass(this.el, ["video-fullscreen", "video-controller"]);
@@ -683,7 +825,8 @@ class FullScreen extends Component {
         this.el.appendChild(this.iconBox);
     }
     initEvent() {
-        this.el.onclick = this.onClick.bind(this);
+        this.onClick = this.onClick.bind(this);
+        this.el.onclick = this.onClick;
         // addClass(this.el, ["video-fullscreen", "video-controller"]);
         // this.iconBox = $("div.video-icon");
         // this.icon = createSvg(fullscreenPath);
@@ -718,6 +861,7 @@ class Playrate extends Options {
     }
     init() {
         this.initTemplate();
+        storeControlComponent(this);
     }
     initTemplate() {
         this.el["aria-label"] = "播放倍速";
@@ -741,12 +885,14 @@ class Controller extends Component {
     constructor(player, container, desc, props, children) {
         super(container, desc, props, children);
         this.id = "Controller";
+        this.props = {};
         this.player = player;
         this.init();
     }
     init() {
         this.initTemplate();
         this.initComponent();
+        storeControlComponent(this);
     }
     initTemplate() {
         this.subPlay = $("div.video-subplay");

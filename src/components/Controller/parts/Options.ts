@@ -24,7 +24,7 @@ export class Options extends Component implements ComponentItem {
     constructor(player: Player, container: HTMLElement, hideWidth?: number, hideHeight?: number, desc?: string, props?: DOMProps, children?: Node[]) {
         super(container, desc, props, children);
         this.player = player;
-        props ? (this.props = props) : (this.props = null);
+        props ? (this.props = props) : (this.props = {});
         this.hideHeight = hideHeight;
         this.hideWidth = hideWidth;
         this.initBase();
