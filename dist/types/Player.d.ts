@@ -6,9 +6,7 @@ export type PlayerOptions = {
     height?: string;
 };
 export type DOMProps = {
-    className?: string[] | {
-        [key: string]: boolean;
-    };
+    className?: string[];
     id?: string;
     style?: Partial<CSSStyleDeclaration>;
     [props: string]: any;

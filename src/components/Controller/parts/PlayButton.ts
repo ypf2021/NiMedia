@@ -3,10 +3,11 @@ import { Player } from "../../../page/player";
 import { ComponentItem, DOMProps, Node } from "../../../types/Player";
 import { createSvg } from "../../../utils/domUtils";
 import { pausePath, playPath } from "../path/defaultPath";
+import { storeControlComponent } from "../../../utils/store";
 
 export class PlayButton extends Component implements ComponentItem {
     readonly id = "PlayButton";
-    props: DOMProps;
+    props: DOMProps = {};
     player: Player;
     private pauseIcon: SVGSVGElement | string;
     private playIcon: SVGSVGElement | string;
@@ -31,6 +32,9 @@ export class PlayButton extends Component implements ComponentItem {
     }
 
     initEvent() {
+        //  让方法永远绑定到自己的实例
+        this.onClick = this.onClick.bind(this);
+
         // 触发播放，暂停 以及图标变换
         this.player.on("play", (e: Event) => {
             this.el.removeChild(this.button);
@@ -44,12 +48,14 @@ export class PlayButton extends Component implements ComponentItem {
             this.el.appendChild(this.button);
         })
 
-        this.el.onclick = (e) => {
-            if (this.player.video.paused) {
-                this.player.video.play();
-            } else {
-                this.player.video.pause();
-            }
+        this.el.onclick = this.onClick.bind(this);
+    }
+
+    onClick(e: MouseEvent) {
+        if (this.player.video.paused) {
+            this.player.video.play();
+        } else {
+            this.player.video.pause();
         }
     }
 

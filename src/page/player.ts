@@ -2,11 +2,14 @@ import {
     ComponentItem,
     PlayerOptions,
     ToolBar,
+    DOMProps
 } from "../index";
 import "./player.less";
 
 import { Component } from "../class/Component";
-import { $ } from "../utils/domUtils";
+import { $, patchComponent } from "../utils/domUtils";
+import { Plugin } from "../index";
+import { CONTROL_COMPONENT_STORE } from "../utils/store";
 
 class Player extends Component implements ComponentItem {
     readonly id = "Player";
@@ -16,6 +19,7 @@ class Player extends Component implements ComponentItem {
         width: "100%",
         height: "100%",
     };
+    props: DOMProps = {};
     container: HTMLElement;
     video: HTMLVideoElement;
     toolBar: ToolBar;
@@ -84,5 +88,23 @@ class Player extends Component implements ComponentItem {
     attendSource(url: string) {
         this.video.src = url;
     }
+
+    registerControls(id: string, component: Partial<ComponentItem>) {
+        let store = CONTROL_COMPONENT_STORE;
+        if (store.has(id)) {
+            patchComponent(store.get(id), component)
+        } else {
+
+        }
+    }
+
+    /**
+     * @description 注册对应的组件
+     * @param plugin 
+     */
+    use(plugin: Plugin) {
+        plugin.install(this);
+    }
+
 }
 export { Player };
