@@ -1,10 +1,11 @@
 import { Component } from "../../class/Component";
-import { Node, ComponentItem, DOMProps, Player } from "../../index";
+import { Node, ComponentItem, DOMProps, Player, Progress } from "../../index";
 import "./toolbar.less";
 export declare class ToolBar extends Component implements ComponentItem {
     readonly id: string;
     props: DOMProps;
     player: Player;
+    progress: Progress;
     private timer;
     constructor(player: Player, container: HTMLElement, desc?: string, props?: DOMProps, children?: Node[]);
     init(): void;
@@ -13,6 +14,7 @@ export declare class ToolBar extends Component implements ComponentItem {
     */
     initTemplate(): void;
     initEvent(): void;
+    initComponent(): void;
     private hideToolBar;
     private showToolBar;
     onShowToolBar(e: MouseEvent): void;
