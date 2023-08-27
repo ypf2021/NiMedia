@@ -1,10 +1,13 @@
+import { Component } from "../class/Component";
 import { Player } from "../page/player";
 export type PlayerOptions = {
     url: string;
     container: HTMLElement;
-    autoPlaye?: boolean;
+    autoplay?: boolean;
     width?: string;
     height?: string;
+    leftControllers?: (ComponentConstructor | string)[];
+    rightControllers?: (ComponentConstructor | string)[];
 };
 export type DOMProps = {
     className?: string[];
@@ -29,3 +32,6 @@ export type registerOptions = {
     replaceElementType?: "replaceOuterHTMLOfComponent" | "replaceInnerHTMLOfComponent";
 };
 export type getFunctionParametersType<T extends (...args: any[]) => any> = T extends (...args: (infer T)[]) => infer U ? T : never;
+export interface ComponentConstructor {
+    new (player: Player, container: HTMLElement, desc?: string, props?: DOMProps, children?: string | Node[]): Component & ComponentItem;
+}

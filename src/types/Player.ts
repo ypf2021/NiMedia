@@ -1,11 +1,14 @@
+import { Component } from "../class/Component"
 import { Player } from "../page/player";
 
 export type PlayerOptions = {
     url: string;
     container: HTMLElement;
-    autoPlaye?: boolean;
+    autoplay?: boolean;
     width?: string;
     height?: string;
+    leftControllers?: (ComponentConstructor | string)[];
+    rightControllers?: (ComponentConstructor | string)[];
 }
 
 export type DOMProps = {
@@ -23,8 +26,6 @@ export interface ComponentItem {
     [props: string]: any
 }
 
-
-
 export interface Node {
     id: string;
     el: HTMLElement;
@@ -41,3 +42,13 @@ export type registerOptions = {
 // getFunctionParametersType，它用于从函数类型 T 中提取参数的类型。
 // 接收一个 泛型T T只能为函数类型
 export type getFunctionParametersType<T extends (...args: any[]) => any> = T extends (...args: (infer T)[]) => infer U ? T : never;
+
+export interface ComponentConstructor {
+    new(
+        player: Player,
+        container: HTMLElement,
+        desc?: string,
+        props?: DOMProps,
+        children?: string | Node[]
+    ): Component & ComponentItem;
+}
