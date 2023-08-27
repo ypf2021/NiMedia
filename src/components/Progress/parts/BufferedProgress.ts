@@ -2,7 +2,7 @@ import { Component } from "../../../class/Component";
 import { Player } from "../../../page/player";
 import { ComponentItem, DOMProps, Node } from "../../../types/Player";
 import { Progress } from "../progress";
-
+import { storeControlComponent } from "../../../utils/store";
 export class BufferedProgress extends Component implements ComponentItem {
     readonly id = "BufferedProgress";
     props: DOMProps = {};
@@ -17,6 +17,7 @@ export class BufferedProgress extends Component implements ComponentItem {
 
     init() {
         this.initEvent();
+        storeControlComponent(this);
     }
 
     initEvent() {

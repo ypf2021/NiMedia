@@ -12,6 +12,7 @@ export class Controller extends Component implements ComponentItem {
     readonly id = "Controller";
     props: DOMProps = {};
     player: Player;
+    // 控件
     playButton: PlayButton;
     private subPlay: HTMLElement;
     private settings: HTMLElement;
@@ -40,11 +41,11 @@ export class Controller extends Component implements ComponentItem {
 
     initComponent() {
         // 按钮挂在到了 sub-play下面
-        this.playButton = new PlayButton(this.player, this.subPlay, "div.video-start-pause");
+        this.playButton = new PlayButton(this.player, this.subPlay);
         // 按钮挂在到了 setting 下面
         this.volume = new Volume(this.player, this.settings, "div");
         this.playrate = new Playrate(this.player, this.settings, "div")
         this.fullscreen = new FullScreen(this.player, this.settings, "div");
-        addClass(this.volume.el, ["video-volume", "video-controller"])
+        // addClass(this.volume.el, ["video-volume", "video-controller"])
     }
 }

@@ -5,6 +5,7 @@ import { ComponentItem, DOMProps } from "../../types/Player";
 import { Dot } from "./parts/Dot";
 import { CompletedProgress } from "./parts/CompletedProgress";
 import { BufferedProgress } from "./parts/BufferedProgress";
+import { storeControlComponent } from "../../utils/store";
 import "./progress.less"
 
 // id 和 el是必须的元素
@@ -20,11 +21,13 @@ export class Progress extends Component implements ComponentItem {
     constructor(player: Player, container: HTMLElement, desc?: string, props?: DOMProps, children?: Node[]) {
         super(container, desc, props, children)
         this.player = player;
+        this.props = props || {};
         this.init();
     }
     init() {
         this.initComponent();
         this.initEvent()
+        storeControlComponent(this);
     }
 
     initComponent() {
@@ -35,16 +38,29 @@ export class Progress extends Component implements ComponentItem {
 
     initEvent() {
         this.el.onmouseenter = (e) => {
-            this.player.emit("progress-mouseenter", e, this);
+            this.onMouseenter(e);
         }
 
         this.el.onmouseleave = (e) => {
-            this.player.emit("progress-mouseleave", e, this);
+            this.onMouseleave(e);
         }
 
         this.el.onclick = (e) => {
-            this.player.emit("progress-click", e, this);
+            this.onClick(e)
         }
+    }
+
+
+    onMouseenter(e: MouseEvent) {
+        this.player.emit("progress-mouseenter", e, this);
+    }
+
+    onMouseleave(e: MouseEvent) {
+        this.player.emit("progress-mouseleave", e, this);
+    }
+
+    onClick(e: MouseEvent) {
+        this.player.emit("progress-click", e, this);
     }
 
 }    

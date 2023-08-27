@@ -1,7 +1,7 @@
 import { Component } from "../../../class/Component"
 import { Player } from "../../../page/player";
 import { ComponentItem, DOMProps, Node } from "../../../types/Player";
-import { createSvg } from "../../../utils/domUtils";
+import { createSvg, addClass } from "../../../utils/domUtils";
 import { pausePath, playPath } from "../path/defaultPath";
 import { storeControlComponent } from "../../../utils/store";
 
@@ -26,6 +26,7 @@ export class PlayButton extends Component implements ComponentItem {
     }
 
     initTemplate() {
+        addClass(this.el, ["video-start-pause"])
         this.pauseIcon = createSvg(pausePath);
         this.playIcon = createSvg(playPath);
         this.button = this.playIcon as SVGSVGElement;

@@ -3,13 +3,14 @@ import { Player } from "../../../page/player";
 import { ComponentItem, DOMProps, Node } from "../../../types/Player";
 import { addClass, getElementSize, includeClass, removeClass } from "../../../utils/domUtils";
 import { Progress } from "../progress";
+import { storeControlComponent } from "../../../utils/store";
 export class Dot extends Component implements ComponentItem {
     readonly id = "Dot";
     props: DOMProps;
     player: Player;
     constructor(player: Player, container: HTMLElement, desc?: string, props?: DOMProps, children?: Node[]) {
         super(container, desc, props, children);
-        this.props = props;
+        this.props = props || {};
         this.player = player;
         this.init();
     }
@@ -17,6 +18,7 @@ export class Dot extends Component implements ComponentItem {
     init() {
         addClass(this.el, ["video-dot", "video-dot-hidden"]);
         this.initEvent();
+        storeControlComponent(this);
     }
 
     initEvent() {

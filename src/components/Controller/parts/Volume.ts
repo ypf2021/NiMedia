@@ -24,6 +24,7 @@ export class Volume extends Options {
     }
 
     initTemplate() {
+        addClass(this.el, ["video-volume", "video-controller"])
         this.el["aria-label"] = "音量"
         this.hideBox.style.bottom = "41px";
         addClass(this.hideBox, ["video-volume-set"]);
