@@ -44,7 +44,7 @@ class Player extends Component implements ComponentItem {
         this.video = $("video");
         this.el.appendChild(this.video);
         this.toolBar = new ToolBar(this, this.el, "div");
-        this.attendSource(this.playerOptions.url);
+        this.attachSource(this.playerOptions.url);
         this.initEvent();
         this.initPlugin();
     }
@@ -100,7 +100,7 @@ class Player extends Component implements ComponentItem {
     }
 
     initMp4Player(url: string) {
-        let player = new Mp4MediaPlayer();
+        let player = new Mp4MediaPlayer(url, this.video);
     }
 
     initMpdPlayer(url: string) {
@@ -109,7 +109,7 @@ class Player extends Component implements ComponentItem {
         player.attachSource(url);
     }
 
-    attendSource(url: string) {
+    attachSource(url: string) {
         switch (getFileExtension(url)) {
             case "mp4":
             case "mp3":
