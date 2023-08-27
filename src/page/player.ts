@@ -2,7 +2,8 @@ import {
     ComponentItem,
     PlayerOptions,
     ToolBar,
-    DOMProps
+    DOMProps,
+    registerOptions
 } from "../index";
 import "./player.less";
 
@@ -13,11 +14,12 @@ import { CONTROL_COMPONENT_STORE } from "../utils/store";
 
 class Player extends Component implements ComponentItem {
     readonly id = "Player";
-    readonly playerOptions = {
+    readonly playerOptions: PlayerOptions = {
         url: "",
         autoplay: false,
         width: "100%",
         height: "100%",
+        container: document.body
     };
     props: DOMProps = {};
     container: HTMLElement;
@@ -41,6 +43,7 @@ class Player extends Component implements ComponentItem {
         this.el.appendChild(this.video);
         this.toolBar = new ToolBar(this, this.el, "div");
         this.initEvent();
+        this.initPlugin();
     }
 
     initEvent() {
@@ -85,16 +88,33 @@ class Player extends Component implements ComponentItem {
         })
     }
 
+
+    initPlugin() {
+        if (this.playerOptions.plugins) {
+            this.playerOptions.plugins.forEach(plugin => {
+                this.use(plugin);
+            })
+        }
+    }
+
     attendSource(url: string) {
         this.video.src = url;
     }
 
-    registerControls(id: string, component: Partial<ComponentItem>) {
+    registerControls(id: string, component: Partial<ComponentItem> & registerOptions) {
         let store = CONTROL_COMPONENT_STORE;
         if (store.has(id)) {
-            patchComponent(store.get(id), component)
+            if (component.replaceElementType) {
+                patchComponent(store.get(id), component, { replaceElementType: component.replaceElementType })
+            } else {
+                patchComponent(store.get(id), component);
+            }
         } else {
-
+            // 如果注册的内容是用户自创的，
+            if (!component.el) {
+                throw new Error(`传入的原创组件${id}没有对应的DOM元素`)
+            }
+            this.toolBar.controller.settings.appendChild(component.el);
         }
     }
 

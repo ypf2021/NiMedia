@@ -208,8 +208,8 @@ export function patchComponent(
                     }
                     target.el.appendChild(another.el);
                 }
-            } else {
-                //  其余的 props
+            } else { //  其余的 props
+
                 if (target[key] instanceof Function) {
                     if (!(another[key] instanceof Function)) {
                         // 一个是fn 另一个 不是fn 的情况

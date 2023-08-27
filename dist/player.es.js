@@ -188,8 +188,7 @@ function patchComponent(target, another, options = { replaceElementType: "replac
                     target.el.appendChild(another.el);
                 }
             }
-            else {
-                //  其余的 props
+            else { //  其余的 props
                 if (target[key] instanceof Function) {
                     if (!(another[key] instanceof Function)) {
                         // 一个是fn 另一个 不是fn 的情况
@@ -834,6 +833,7 @@ class Player extends Component {
             autoplay: false,
             width: "100%",
             height: "100%",
+            container: document.body
         };
         this.props = {};
         this.playerOptions = Object.assign(this.playerOptions, options);
@@ -850,6 +850,7 @@ class Player extends Component {
         this.el.appendChild(this.video);
         this.toolBar = new ToolBar(this, this.el, "div");
         this.initEvent();
+        this.initPlugin();
     }
     initEvent() {
         this.el.onmousemove = (e) => {
@@ -885,13 +886,31 @@ class Player extends Component {
             this.video.paused && this.video.play();
         });
     }
+    initPlugin() {
+        if (this.playerOptions.plugins) {
+            this.playerOptions.plugins.forEach(plugin => {
+                this.use(plugin);
+            });
+        }
+    }
     attendSource(url) {
         this.video.src = url;
     }
     registerControls(id, component) {
         let store = CONTROL_COMPONENT_STORE;
         if (store.has(id)) {
-            patchComponent(store.get(id), component);
+            if (component.replaceElementType) {
+                patchComponent(store.get(id), component, { replaceElementType: component.replaceElementType });
+            }
+            else {
+                patchComponent(store.get(id), component);
+            }
+        }
+        else {
+            // 如果注册的内容是用户自创的，
+            if (!component.el) {
+                throw new Error(`传入的原创组件${id}没有对应的DOM元素`);
+            }
         }
     }
     /**

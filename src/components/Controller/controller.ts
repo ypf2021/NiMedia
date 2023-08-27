@@ -1,7 +1,7 @@
 import { Component } from "../../class/Component";
 import { Player } from "../../page/player";
 import { ComponentItem, DOMProps, Node, ComponentConstructor, PlayerOptions } from "../../types/Player";
-import { $, addClass } from "../../utils/domUtils";
+import { $ } from "../../utils/domUtils";
 import "./controller.less"
 import { PlayButton } from "./parts/PlayButton";
 import { Volume } from "./parts/Volume";
@@ -12,13 +12,8 @@ export class Controller extends Component implements ComponentItem {
     readonly id = "Controller";
     props: DOMProps = {};
     player: Player;
-    private subPlay: HTMLElement;
-    private settings: HTMLElement;
-    // 控件
-    // playButton: PlayButton;
-    // volume: Volume;
-    // fullscreen: FullScreen;
-    // playrate: Playrate;
+    subPlay: HTMLElement;
+    settings: HTMLElement;
     leftControllers: ComponentConstructor[] = [PlayButton];
     rightController: ComponentConstructor[] = [Playrate, Volume, FullScreen]
 
