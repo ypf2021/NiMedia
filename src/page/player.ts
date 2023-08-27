@@ -11,6 +11,10 @@ import { Component } from "../class/Component";
 import { $, patchComponent } from "../utils/domUtils";
 import { Plugin } from "../index";
 import { CONTROL_COMPONENT_STORE } from "../utils/store";
+import { getFileExtension } from "../utils/play"
+import MpdMediaPlayerFactory from "../dash/MediaPlayer";
+import Mp4MediaPlayer from "../mp4/MediaPlayer";
+
 
 class Player extends Component implements ComponentItem {
     readonly id = "Player";
@@ -29,19 +33,18 @@ class Player extends Component implements ComponentItem {
     constructor(options: PlayerOptions) {
         super(options.container, "div.video-wrapper");
         this.playerOptions = Object.assign(this.playerOptions, options);
-        this.container = options.container;
-        console.log("playerOptions", this.playerOptions)
         options.container.className = "video-container";
-        options.container.style.width = this.playerOptions.width + "px";
-        options.container.style.height = this.playerOptions.height + "px"
+        options.container.style.width = this.playerOptions.width;
+        options.container.style.height = this.playerOptions.height;
+        this.container = options.container;
         this.init();
     }
 
     init() {
         this.video = $("video");
-        this.video.src = this.playerOptions.url || "";
         this.el.appendChild(this.video);
         this.toolBar = new ToolBar(this, this.el, "div");
+        this.attendSource(this.playerOptions.url);
         this.initEvent();
         this.initPlugin();
     }
@@ -88,7 +91,6 @@ class Player extends Component implements ComponentItem {
         })
     }
 
-
     initPlugin() {
         if (this.playerOptions.plugins) {
             this.playerOptions.plugins.forEach(plugin => {
@@ -97,8 +99,28 @@ class Player extends Component implements ComponentItem {
         }
     }
 
+    initMp4Player(url: string) {
+        let player = new Mp4MediaPlayer();
+    }
+
+    initMpdPlayer(url: string) {
+        let player = MpdMediaPlayerFactory().create();
+        player.attachVideo(this.video);
+        player.attachSource(url);
+    }
+
     attendSource(url: string) {
-        this.video.src = url;
+        switch (getFileExtension(url)) {
+            case "mp4":
+            case "mp3":
+                this.initMp4Player(url);
+                break
+            case "mpd":
+                this.initMpdPlayer(url);;
+                break
+            case "m3u8":
+            //todo
+        }
     }
 
     registerControls(id: string, component: Partial<ComponentItem> & registerOptions) {
