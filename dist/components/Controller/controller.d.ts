@@ -6,8 +6,8 @@ export declare class Controller extends Component implements ComponentItem {
     readonly id = "Controller";
     props: DOMProps;
     player: Player;
-    private subPlay;
-    private settings;
+    subPlay: HTMLElement;
+    settings: HTMLElement;
     leftControllers: ComponentConstructor[];
     rightController: ComponentConstructor[];
     constructor(player: Player, container: HTMLElement, desc?: string, props?: DOMProps, children?: Node[]);
