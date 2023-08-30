@@ -35,7 +35,10 @@ class MediaPlayer {
             Log.info("Application", "Starting to parse movie information")
         }
 
+        // debugger阅读源码可知，当在(第一次得到总数)第二次请求内容被请求到(请求最后一段)，并被通过 mp4boxfile.appendBuffer 添加之后，就会触发 MP4Boxfile的 onready事件，拿到的info就是进过内部处理后的数据MoovBoxInfo
         this.mp4boxfile.onReady = function (info: MoovBoxInfo) {
+            debugger
+            console.log("onready")
             Log.info("Application", "Movie information received");
             ctx.mediaInfo = info;
             // 计算总时间
@@ -46,18 +49,24 @@ class MediaPlayer {
             } else {
                 ctx.mediaSource.duration = info.duration / info.timescale;
             }
+            // 在这里去停掉 请求的定时器，结束请求，之后开始处理资源 
             ctx.stop()
             ctx.initializeAllSourceBuffers()
         }
 
-
+        // appendBuffer之后，执行完onready -> processSamples(last) 时被触发 -> onSegment  is_last参数就是appendBuffer时传入的end
         this.mp4boxfile.onSegment = function (id, user, buffer, sampleNum, is_last) {
+            // debugger
+            console.log("onsegment")
             //sb = sourcebuffer
             var sb = user;
             // saveBuffer(buffer, 'track-'+id+'-segment-'+sb.segmentIndex+'.m4s');
             sb.segmentIndex++;
+            // pendingAppends是数组，在onready时创建完毕，存放的是参数信息
             sb.pendingAppends.
                 push({ id: id, buffer: buffer, sampleNum: sampleNum, is_last: is_last });
+
+            // 添加完后调用 updateEnd
             ctx.onUpdateEnd.call(sb, true, false, ctx);
         }
 
@@ -117,6 +126,7 @@ class MediaPlayer {
         let sb: MP4SourceBuffer
         if (MediaSource.isTypeSupported(mime)) {
             try {
+                // 注册回调函数参数，给sb添加属性
                 console.log("MSE - SourceBuffer #" + track_id, "Creation with type '" + mime + "'")
                 Log.info("MSE - SourceBuffer #" + track_id, "Creation with type '" + mime + "'");
                 // 根据moov box中解析出来的track去一一创建对应的sourcebuffer
@@ -142,16 +152,6 @@ class MediaPlayer {
         }
 
     }
-
-    // addSourceBufferListener(info: MoovBoxInfo) {
-    //     // "track" 属性表示一个轨道（track）。一个 MP4 文件可以包含多个轨道，例如音频轨道、视频轨道等。
-    //     // 通过访问 "MoovBoxInfo" 对象的 "track" 属性，您可以获取轨道的详细信息，如轨道类型、编解码器信息、时长、帧率等。
-    //     for (var i = 0; i < info.tracks.length; i++) {
-    //         var track = info.tracks[i];
-    //         //  将获取到的track信息，通过addbuffer 纯递给MediaSource
-    //         this.addBuffer(track);
-    //     }
-    // }
 
     // 开始加载视频
     loadFile() {
@@ -190,17 +190,19 @@ class MediaPlayer {
 
     initializeAllSourceBuffers() {
         if (this.mediaInfo) {
-            var info = this.mediaInfo;
+            // 拿到资源track，挨个调用 this.addBuffer
+            let info = this.mediaInfo;
             for (var i = 0; i < info.tracks.length; i++) {
                 var track = info.tracks[i];
                 this.addBuffer(track);
             }
+            // addbuffer执行完成后
             this.initializeSourceBuffers();
         }
     }
 
     initializeSourceBuffers() {
-        var initSegs = this.mp4boxfile.initializeSegmentation();
+        var initSegs = this.mp4boxfile.initializeSegmentation(); // initializeSegmentation内部 resetTables
         for (var i = 0; i < initSegs.length; i++) {
             var sb = initSegs[i].user;
             if (i === 0) {
@@ -216,6 +218,7 @@ class MediaPlayer {
     }
 
     onInitAppended(e: Event) {
+        // debugger
         console.log(this);
         let ctx = this;
         var sb = e.target as MP4SourceBuffer;
@@ -241,6 +244,7 @@ class MediaPlayer {
                 ctx.mp4boxfile.releaseUsedSamples((this as unknown as MP4SourceBuffer).id, (this as unknown as MP4SourceBuffer).sampleNum);
                 delete (this as unknown as MP4SourceBuffer).sampleNum;
             }
+            // 如果 sb 的 is_last 属性为true，就可以结束了，但是现在这部分有bug
             if ((this as unknown as MP4SourceBuffer).is_last) {
                 (this as unknown as MP4SourceBuffer).ms.endOfStream();
             }

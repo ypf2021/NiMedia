@@ -46,7 +46,7 @@ class DownLoader {
     resume() {
         Log.info("Downloader", "Resuming file download");
         this.isActive = true;
-        if (this.chunkSize = 0) {
+        if (this.chunkSize == 0) {
             this.chunkSize = Infinity;
         }
         this.getFile();
@@ -90,7 +90,7 @@ class DownLoader {
     initHttpRequest(): HTTPRequest {
         let xhr = new XMLHttpRequest();
         let header: RequestHeader = {};
-        (xhr as XMLHttpRequest & { [props: string]: any }).start = this.chunkStart;;
+        (xhr as XMLHttpRequest & { [props: string]: any }).start = this.chunkStart;
         if (this.chunkStart + this.chunkSize < Infinity) {
             let endRange = 0;
             let range = 'bytes=' + this.chunkStart + "-"
