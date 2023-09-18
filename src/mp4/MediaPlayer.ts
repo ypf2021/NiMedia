@@ -36,6 +36,7 @@ class MediaPlayer {
         }
 
         // debugger阅读源码可知，当在(第一次得到总数)第二次请求内容被请求到(请求最后一段)，并被通过 mp4boxfile.appendBuffer 添加之后，就会触发 MP4Boxfile的 onready事件，拿到的info就是进过内部处理后的数据MoovBoxInfo
+        // 并且只执行一次
         this.mp4boxfile.onReady = function (info: MoovBoxInfo) {
             debugger
             console.log("onready")
