@@ -26,7 +26,13 @@ declare class MediaPlayer {
      */
     attachSource(url: string): void;
     onSegmentLoaded(res: ConsumedSegment): void;
+    /**
+     * @description 挂载video 构造video的资源内容，资源容器，加载资源事件，seek事件
+     * @param {HTMLVideoElement} video
+     * @memberof MediaPlayer
+     */
     attachVideo(video: HTMLVideoElement): void;
 }
 declare const factory: import("../types/dash/Factory").FactoryFunction<MediaPlayer>;
+export { MediaPlayer };
 export default factory;

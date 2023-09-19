@@ -1,108 +1,187 @@
-import { $warn, styles, Progress, Controller, EventObject, BaseEvent } from "../../index";
+import { Component } from "../../class/Component";
+import { Node, ComponentItem, DOMProps, Player, Progress, Controller, } from "../../index";
+import { addClass, includeClass, removeClass } from "../../utils/domUtils";
+import { storeControlComponent } from "../../utils/store";
 import "./toolbar.less";
 
 // 音乐播放器的工具栏组件 ( progress + controller )
 
-export class ToolBar extends BaseEvent {
-    private template_!: HTMLElement;
-    private progress!: Progress;
-    private controller!: Controller;
-    private container!: HTMLElement;
-    private video!: HTMLVideoElement;
-    private timer!: null | number
+// export class ToolBar extends Component implements ComponentItem {
+//     private template_!: HTMLElement;
+//     private progress!: Progress;
+//     private controller!: Controller;
+//     private container!: HTMLElement;
+//     private video!: HTMLVideoElement;
+//     private timer!: null | number
 
-    constructor(container: HTMLElement) {
-        super()
-        this.container = container
+//     constructor(container: HTMLElement) {
+//         super()
+//         this.container = container
+//         this.init();
+//         this.initComponent();
+//         this.initTemplate();
+//         this.initEvent();
+//     }
+
+//     get template(): HTMLElement {
+//         return this.template_
+//     };
+
+//     init(): void { }
+
+//     // 注册 进度条 和 控制器
+//     initComponent() {
+//         this.progress = new Progress(this.container) // 进度条
+//         this.controller = new Controller(this.container) //下面的控制器
+//     }
+
+//     // 组合 进度条 和 控制器的template
+//     initTemplate() {
+//         let div = document.createElement("div")
+//         div.className = `${styles["video-controls"]} ${styles["video-controls-hidden"]}`;
+//         div.innerHTML += this.progress.template as string;
+//         div.innerHTML += this.controller.template as string;
+//         this.template_ = div
+//     }
+
+//     // 显示和隐藏toolbar
+
+//     showToolBar(e: MouseEvent) {
+//         //工具栏的总容器
+//         this.container.querySelector(
+//             `.${styles["video-controls"]}`
+//         )!.className = `${styles["video-controls"]}`;
+//         if (e.target !== this.video) {
+//             // do nothing
+//         } else {
+//             // 一个防抖
+//             this.timer = window.setTimeout(() => {
+//                 this.hideToolBar()
+//             }, 3000)
+//         }
+//     }
+
+//     hideToolBar() {
+//         this.container.querySelector(
+//             `.${styles["video-controls"]}`
+//         )!.className = `${styles["video-controls"]} ${styles["video-controls-hidden"]}`;
+//     }
+
+//     initEvent() {
+
+//         this.on("showtoolbar", (e: MouseEvent) => {
+//             // 防抖
+//             if (this.timer) {
+//                 clearTimeout(this.timer);
+//                 this.timer = null
+//             }
+//             this.showToolBar(e)
+//         });
+
+//         this.on("hidetoolbar", () => {
+//             this.hideToolBar()
+//         });
+
+//         this.on("loadedmetadata", (summary: number) => {
+//             this.controller.emit("loadedmetadata", summary);
+//             this.progress.emit("loadedmetadata", summary);
+//         });
+
+//         this.on("timeupdate", (current: number) => {
+//             this.controller.emit("timeupdate", current);
+//             this.progress.emit("timeupdate", current);
+//         });
+
+//         this.on("mounted", () => {
+//             this.video = this.container.querySelector("video")!;
+//             this.controller.emit("mounted");
+//             this.progress.emit("mounted")
+//         });
+
+//         this.on("play", () => {
+//             this.controller.emit("play")
+//         })
+
+//         this.on("pause", () => {
+//             this.controller.emit("pause")
+//         })
+//     }
+
+
+// }
+
+export class ToolBar extends Component implements ComponentItem {
+    readonly id: string = "Toolbar";
+    props: DOMProps = {};
+    player: Player;
+    progress: Progress;
+    controller: Controller;
+    private timer: number = 0;
+    // 先初始化播放器的默认样式，暂时不考虑用户的自定义样式
+
+    constructor(player: Player, container: HTMLElement, desc?: string, props?: DOMProps, children?: Node[]) {
+        super(container, desc, props, children);
+        this.player = player;
+        this.props = props || {};
         this.init();
-        this.initComponent();
+    }
+
+    init() {
         this.initTemplate();
+        this.initComponent();
         this.initEvent();
+        storeControlComponent(this);
     }
 
-    get template(): HTMLElement {
-        return this.template_
-    };
-
-    init(): void { }
-
-    // 注册 进度条 和 控制器
-    initComponent() {
-        this.progress = new Progress(this.container) // 进度条
-        this.controller = new Controller(this.container) //下面的控制器
-    }
-
-    // 组合 进度条 和 控制器的template
+    /**
+    * @description 需要注意的是此处元素的class名字是官方用于控制整体toolbar一栏的显示和隐藏
+    */
     initTemplate() {
-        let div = document.createElement("div")
-        div.className = `${styles["video-controls"]} ${styles["video-controls-hidden"]}`;
-        div.innerHTML += this.progress.template as string;
-        div.innerHTML += this.controller.template as string;
-        this.template_ = div
+        addClass(this.el, ["video-controls", "video-controls-hidden"]);
     }
 
-    // 显示和隐藏toolbar
+    initEvent() {
+        this.player.on("showtoolbar", (e) => {
+            this.onShowToolBar(e);
+        })
 
-    showToolBar(e: MouseEvent) {
-        //工具栏的总容器
-        this.container.querySelector(
-            `.${styles["video-controls"]}`
-        )!.className = `${styles["video-controls"]}`;
-        if (e.target !== this.video) {
-            // do nothing
-        } else {
-            // 一个防抖
+        this.player.on("hidetoolbar", (e) => {
+            this.onHideToolBar(e);
+        })
+    }
+
+    initComponent() {
+        this.progress = new Progress(this.player, this.el, "div.video-progress");
+        this.controller = new Controller(this.player, this.el, "div.video-play")
+    }
+
+    private hideToolBar() {
+        if (!includeClass(this.el, "video-controls-hidden")) {
+            addClass(this.el, ["video-controls-hidden"]);
+        }
+    }
+
+    private showToolBar(e: MouseEvent) {
+        if (includeClass(this.el, "video-controls-hidden")) {
+            removeClass(this.el, ["video-controls-hidden"]);
+        }
+        if (e.target === this.player.video) {
             this.timer = window.setTimeout(() => {
-                this.hideToolBar()
+                this.hideToolBar();
             }, 3000)
         }
     }
 
-    hideToolBar() {
-        this.container.querySelector(
-            `.${styles["video-controls"]}`
-        )!.className = `${styles["video-controls"]} ${styles["video-controls-hidden"]}`;
+    onShowToolBar(e: MouseEvent) {
+        if (this.timer) {
+            window.clearTimeout(this.timer);
+            this.timer = null;
+        }
+        this.showToolBar(e);
     }
 
-    initEvent() {
-
-        this.on("showtoolbar", (e: MouseEvent) => {
-            // 防抖
-            if (this.timer) {
-                clearTimeout(this.timer);
-                this.timer = null
-            }
-            this.showToolBar(e)
-        });
-
-        this.on("hidetoolbar", () => {
-            this.hideToolBar()
-        });
-
-        this.on("loadedmetadata", (summary: number) => {
-            this.controller.emit("loadedmetadata", summary);
-            this.progress.emit("loadedmetadata", summary);
-        });
-
-        this.on("timeupdate", (current: number) => {
-            this.controller.emit("timeupdate", current);
-            this.progress.emit("timeupdate", current);
-        });
-
-        this.on("mounted", () => {
-            this.video = this.container.querySelector("video")!;
-            this.controller.emit("mounted");
-            this.progress.emit("mounted")
-        });
-
-        this.on("play", () => {
-            this.controller.emit("play")
-        })
-
-        this.on("pause", () => {
-            this.controller.emit("pause")
-        })
+    onHideToolBar(e: MouseEvent) {
+        this.hideToolBar();
     }
-
-
 }
+

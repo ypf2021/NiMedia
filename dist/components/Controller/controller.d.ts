@@ -1,30 +1,18 @@
-import { BaseEvent } from '../../index';
+import { Component } from "../../class/Component";
+import { Player } from "../../page/player";
+import { ComponentItem, DOMProps, Node, ComponentConstructor } from "../../types/Player";
 import "./controller.less";
-export declare class Controller extends BaseEvent {
-    private template_;
-    private container;
-    private videoPlayBtn;
-    private currentTime;
-    private summaryTime;
-    private video;
-    private fullScreen;
-    private volumeBtn;
-    private volumeSet;
-    private volumeDot;
-    private volumeProgress;
-    private playRate;
-    private resolvePower;
-    private settings;
-    private volumeCompleted;
-    private playRateSet;
-    private resolvePowerSet;
-    constructor(container: HTMLElement);
-    get template(): HTMLElement | string;
+export declare class Controller extends Component implements ComponentItem {
+    readonly id = "Controller";
+    props: DOMProps;
+    player: Player;
+    subPlay: HTMLElement;
+    settings: HTMLElement;
+    leftControllers: ComponentConstructor[];
+    rightController: ComponentConstructor[];
+    constructor(player: Player, container: HTMLElement, desc?: string, props?: DOMProps, children?: Node[]);
     init(): void;
-    /**
-     * @description 控制栏的事件 开始播放/关闭播放 ，全屏，设置
-     */
-    initControllerEvent(): void;
-    initEvent(): void;
-    handleMouseMove(e: MouseEvent, type: "volume" | "playrate" | "resolvepower"): void;
+    initControllers(): void;
+    initTemplate(): void;
+    initComponent(): void;
 }

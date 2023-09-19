@@ -1,27 +1,16 @@
 export * from "./class/BaseEvent"
 export * from "./utils/warn";
-export * from "./styles/style"
-export * from "./styles/icon";
-export * from "./types/PlayerOptions"
+export * from "./components/Progress/parts"
+export * from "./components/ToolBar/toolbar";
+export * from "./components/Controller/parts"
+export * from "./components/Progress/progress";
+export * from "./types/Player"
+export * from "./page/player";
 export * from "./components/Controller/controller"
-export * from "./components/ErrorMask/error-mask"
-export * from "./components/LoadingMask/loading-mask"
-export * from "./components/Progress/progress"
-export * from "./components/ToolBar/toolbar"
-export * from "./components/Controller/controller"
-export * from "./components/Player/player";
 export * from "./types/EventObject"
 export * from "./utils/format";
 export * from "./types/dash/MpdFile"
 export * from "./utils/typeCheck"
 export * from "./utils/typeSwitch"
-
-
-// 一下部分在 v1.0.0之后都更新弃用了
-// export * from "./dash/initMpd";  
-// export * from "./dash/parseMpd"
-// export * from "./types/AxiosRequest"
-// export * from "./axios/Axios"
-
 
 console.log('hello')

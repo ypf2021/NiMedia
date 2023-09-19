@@ -7,7 +7,7 @@ import { defineConfig } from "rollup";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import { terser } from "rollup-plugin-terser";
 
-const extensions = [".ts","less"];
+const extensions = [".ts", "less"];
 export default defineConfig([
   {
     input: "./src/index.ts", //入口
@@ -20,7 +20,7 @@ export default defineConfig([
       {
         file: "./dist/player.min.cjs.js",
         format: "cjs",
-        plugins:[terser()]
+        plugins: [terser()]
       },
       {
         file: "./dist/player.es.js",
@@ -29,7 +29,7 @@ export default defineConfig([
       {
         file: "./dist/player.min.es.js",
         format: "es",
-        plugins:[terser()]
+        plugins: [terser()]
       },
       {
         file: "./dist/player.umd.js",
@@ -40,7 +40,7 @@ export default defineConfig([
         file: "./dist/player.min.umd.js",
         format: "umd",
         name: "Player",
-        plugins:[terser()]
+        plugins: [terser()]
       },
     ],
 
@@ -54,12 +54,12 @@ export default defineConfig([
       babel(),
       commonjs(),
       postcss({
-        plugins:[
+        plugins: [
           autoprefixer()
         ],
         // extract: true
         extract: 'css/index.css',
-        modules: true
+        // modules: true
       })
     ],
   },

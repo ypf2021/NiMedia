@@ -8,7 +8,7 @@ import MediaPlayerBufferFactory, { MediaPlayerBuffer } from "./MediaPlayerBuffer
 import { VideoBuffers } from "../../types/dash/Stream";
 import TimeRangeUtilsFactory, { TimeRangeUtils } from "../utils/TimeRangeUtils";
 
-// 负责将请求到的资源放入到 buffer中，该文件主要进行资源后续处理
+// 负责将请求到的资源放入到 buffer中，该文件主要进行资源后续处理 构造video的资源内容，资源容器，加载资源事件，seek事件
 class MediaPlayerController {
     // 私有属性
     private config: FactoryObject = {}
@@ -32,11 +32,9 @@ class MediaPlayerController {
             this.video = this.config.video;
         }
         this.setup();
-        console.log("initMediaPlayerController----initEvent")
 
         this.initEvent();
 
-        console.log("initMediaPlayerController----initPlayer")
         this.initPlayer();
     }
 

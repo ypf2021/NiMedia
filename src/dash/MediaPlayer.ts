@@ -60,7 +60,6 @@ class MediaPlayer {
     onManifestLoaded(data) {
         console.log("请求得到的manifest数据", data) //这里的data是字符串
         let manifest = this.dashParser.parse(data) // 在这里已经将 data已经将数据都处理好了
-
         // let res = this.streamController.generateSegmentRequestStruct(manifest as Mpd);
         // console.log("generateSegmentRequestStruct的返回结果 SegmentRequestStruct", res);
         this.duration = this.dashParser.getTotalDuration(manifest as Mpd)
@@ -100,6 +99,11 @@ class MediaPlayer {
         this.eventBus.tigger(EventConstants.BUFFER_APPENDED, this.currentStreamId)
     }
 
+    /**
+     * @description 挂载video 构造video的资源内容，资源容器，加载资源事件，seek事件
+     * @param {HTMLVideoElement} video
+     * @memberof MediaPlayer
+     */
     public attachVideo(video: HTMLVideoElement) {
         console.log("MediaPlayer attachVideo", video)
         this.video = video;
@@ -110,4 +114,5 @@ class MediaPlayer {
 
 const factory = FactoryMaker.getClassFactory(MediaPlayer)
 
+export { MediaPlayer }
 export default factory;
