@@ -206,3 +206,23 @@ Mpd播放器解析流程：
 8. 当MpdParse转换完后 触发事件MANIFEST_PARSE_COMPLETED。 在MediaPlayerController中做一些小处理(设置mediaSource时间)；并在 streamController中构建请求结构体 segmentRequestStruct()
 9. segmentRequestStruct 结合BaseURL，initializationURL，MediaURl，分辨率，音频频率，生成一个结构体，用于发送请求
 10. startStream  开始发送请求 初始化播放流，一次至多加载23个Segement过来。 后续还涉及到了 每一个segment资源的接受，append到Buffer中，点击请求，添加buffr,最后全部下载完毕之后会触发结束的回调
+
+# 项目亮点
+
+## 项目构建模式
+整个项目是原生HTML TS编写，通过各种方法，各种类之间相互联系，构造而成。
+页面的基础架构。通过类继承的方式，完成一个个的组件。
+- 页面架构：
+  - Component extends BaseEvent（事件总线） 
+  - 通过 $ 方法创建html结构，传入desc，prop，children 动态创建一个html元素，并将其挂载到传入的container中
+    - $ 方法接收参数 desc，prop，children。 desc 由 element # . 构成，通过正则表达式，解析，创建dom并添加id和类名， prop：style特殊添加，其余设置 attribute。 children，判断子元素类型，如果是typeof string，就是文本设置innerHtml，其余appendChild
+  - BaseEvent（事件总线），实现了订阅发布模式 emit on off
+  - 每一个组件都有各自的 initEvent监听函数  initComponent$创建自己的子元素，
+  - 事件通过  this.player.emit("progress-click", e, this);
+  - 用户扩展功能 通过`player.use{ install(player){ player.registerControls("Toolbar", {}) } }` 可以添加新的组件元素进去添加到 toolBar中，或者将已有组件进行修改 `patchComponent` 属性进行合并, el判断是内还是外，进行替换， 函数，改变指向一起执行
+- 实现基本MPD文件解析。
+  - 解析过程中有很多的函数方法。按照solid原则，结合工厂模式，让解析的过程分工明确，条例清晰。公用组件通过`getSingleFactory`返回单一特例，可复用的类通过`getClassFactory`包装，每次返回new的结果，并且进行缓存。 例如 `XHRLoaderFactory = FactoryMaker.getSingleFactory(XHRLoader) this.xhrLoader = XHRLoaderFactory({}).getInstance();`
+  - 两条线路  attachVideo 负责资源->video中 ， attachSource 负责mpd文件解析 -> 视频资源  就是上面的Mpd播放器解析流程：
+- MP4文件部分的处理， 借助 MP4Box
+
+

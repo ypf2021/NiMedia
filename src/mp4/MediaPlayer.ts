@@ -22,7 +22,6 @@ class MediaPlayer {
         this.mp4boxfile = MP4Box.createFile(); // 创建一个新的空白的 MP4 文件。
         this.downloader = new DownLoader(this.url);
         this.mediaSource = new MediaSource();
-        console.log(111)
         this.video.src = window.URL.createObjectURL(this.mediaSource);
         this.initEvent();
         this.loadFile();
