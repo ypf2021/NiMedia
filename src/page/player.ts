@@ -78,7 +78,6 @@ class Player extends Component implements ComponentItem {
             this.emit("pause", e);
         }
 
-
         this.on("progress-click", (e, ctx) => {
             let scale = e.offsetX / ctx.el.offsetWidth;
             if (scale < 0) {

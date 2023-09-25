@@ -367,8 +367,6 @@ class DashParser {
         })
     }
 
-
-
 }
 
 const DashParserFactory = FactoryMaker.getSingleFactory(DashParser);
